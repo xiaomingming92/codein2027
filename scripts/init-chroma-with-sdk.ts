@@ -3,18 +3,14 @@ import * as dotenv from "dotenv"
 
 dotenv.config({ path: ".env.development" })
 
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_COLLECTION, CHROMA_AUTH_TOKEN } from "../src/config/chroma-config"
 
 async function initializeChromaWithSDK() {
   console.log("🚀 使用 Chroma SDK 初始化集合...\n")
   
   console.log("配置信息:")
   console.log(`   URL: ${CHROMA_URL}`)
-  console.log(`   Collection: ${COLLECTION_NAME}`)
+  console.log(`   Collection: ${CHROMA_COLLECTION}`)
   console.log(`   Auth Token: ${CHROMA_AUTH_TOKEN ? "已配置" : "未配置"}`)
   console.log("")
 
@@ -39,9 +35,9 @@ async function initializeChromaWithSDK() {
 
     console.log("\n🔄 创建/获取集合...")
     const collection = await client.getOrCreateCollection({
-      name: COLLECTION_NAME,
+      name: CHROMA_COLLECTION,
     })
-    console.log(`✅ 集合 "${COLLECTION_NAME}" 已创建/获取`)
+    console.log(`✅ 集合 "${CHROMA_COLLECTION}" 已创建/获取`)
 
     console.log("\n📊 添加测试文档...")
     const testId = `test-${Date.now()}`
@@ -59,12 +55,15 @@ async function initializeChromaWithSDK() {
     const results = await collection.query({
       queryTexts: ["测试"],
       nResults: 1,
-      include: [IncludeEnum.Documents],
+      include: [IncludeEnum.documents],
     })
     
     if (results.documents && results.documents[0] && results.documents[0].length > 0) {
       console.log(`✅ 查询成功，找到 ${results.documents[0].length} 个结果`)
-      console.log(`   最相关结果: ${results.documents[0][0].substring(0, 50)}...`)
+      const firstDoc = results.documents[0][0]
+      if (firstDoc) {
+        console.log(`   最相关结果: ${firstDoc.substring(0, 50)}...`)
+      }
     }
 
     console.log("\n🗑️ 清理测试数据...")
@@ -74,7 +73,7 @@ async function initializeChromaWithSDK() {
     console.log("✅ 测试数据已清理")
 
     console.log("\n🎉 ChromaDB 集合初始化完成！")
-    console.log(`   集合名称: ${COLLECTION_NAME}`)
+    console.log(`   集合名称: ${CHROMA_COLLECTION}`)
     console.log(`   文档数量: ${await collection.count()}`)
     console.log("\n💡 提示:")
     console.log("   现在可以重新运行同步操作了")

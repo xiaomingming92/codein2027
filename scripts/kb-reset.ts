@@ -3,12 +3,7 @@ import { DocStatus, SourceType } from "@prisma/client"
 import { syncKnowledgeBase } from "../src/services/knowledge-sync"
 import { deleteKnowledgeVectors, resetChromaClient } from "../src/services/knowledge-indexer"
 import { audit, auditPhaseStart, auditPhaseEnd } from "../src/lib/audit-logger"
-
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
+import { CHROMA_URL, CHROMA_AUTH_TOKEN, CHROMA_COLLECTION } from "../src/config/chroma-config"
 
 class DirectChromaClient {
   private baseUrl: string
@@ -53,9 +48,9 @@ async function main() {
   console.log("[步骤 1/4] 删除 ChromaDB 集合...")
   try {
     const client = new DirectChromaClient(CHROMA_URL, CHROMA_AUTH_TOKEN)
-    await client.deleteCollection(COLLECTION_NAME)
-    audit("SYNC_DONE", `ChromaDB 集合 "${COLLECTION_NAME}" 已删除`)
-    console.log(`  ✅ 集合 "${COLLECTION_NAME}" 已删除\n`)
+    await client.deleteCollection(CHROMA_COLLECTION)
+    audit("SYNC_DONE", `ChromaDB 集合 "${CHROMA_COLLECTION}" 已删除`)
+    console.log(`  ✅ 集合 "${CHROMA_COLLECTION}" 已删除\n`)
   } catch (error) {
     audit("SYNC_DONE", `ChromaDB 集合删除失败（可能不存在）: ${error instanceof Error ? error.message : String(error)}`)
     console.log(`  ⚠️ 集合删除失败（可能不存在），继续...\n`)

@@ -2,35 +2,24 @@ import * as dotenv from "dotenv"
 
 dotenv.config({ path: ".env.development" })
 
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_COLLECTION, getChromaHeaders } from "../src/config/chroma-config"
 
 async function cleanupChroma() {
   console.log("🧹 清理 ChromaDB 测试数据...\n")
 
   console.log("配置:")
   console.log(`   Host: ${CHROMA_URL}`)
-  console.log(`   Collection: ${COLLECTION_NAME}`)
-  console.log(`   Auth: ${CHROMA_AUTH_TOKEN ? "已配置" : "未配置"}`)
+  console.log(`   Collection: ${CHROMA_COLLECTION}`)
   console.log("")
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  }
-
-  if (CHROMA_AUTH_TOKEN) {
-    headers["Authorization"] = `Bearer ${CHROMA_AUTH_TOKEN}`
-  }
+  const headers = getChromaHeaders()
 
   try {
     console.log("1️⃣ 获取集合信息...")
     const collectionsRes = await fetch(`${CHROMA_URL}/api/v1/collections`, { headers })
     const collections = await collectionsRes.json()
     
-    const collection = collections.find((c: { name: string }) => c.name === COLLECTION_NAME)
+    const collection = collections.find((c: { name: string }) => c.name === CHROMA_COLLECTION)
     
     if (!collection) {
       console.log("   ⚠️  集合不存在，无需清理")

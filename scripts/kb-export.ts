@@ -3,9 +3,7 @@ import { OpenAIEmbeddings } from "@langchain/openai"
 import { Document } from "@langchain/core/documents"
 import * as fs from "fs/promises"
 import * as path from "path"
-
-const CHROMA_URL = process.env.CHROMA_URL || "http://localhost:8000"
-const CHROMA_COLLECTION = process.env.CHROMA_COLLECTION || "team_coordinator"
+import { CHROMA_URL, CHROMA_COLLECTION } from "../src/config/chroma-config"
 const EXPORT_DIR = path.join(process.cwd(), "data", "exports")
 
 interface ExportData {

@@ -3,11 +3,7 @@ import * as dotenv from "dotenv"
 
 dotenv.config({ path: ".env.development" })
 
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_COLLECTION, CHROMA_AUTH_TOKEN } from "../src/config/chroma-config"
 
 async function testChromaAuth() {
   console.log("🧪 测试 ChromaDB 认证配置...\n")
@@ -42,9 +38,9 @@ async function testChromaAuth() {
         
         console.log("\n🔄 创建集合...")
         const collection = await client.getOrCreateCollection({
-          name: COLLECTION_NAME,
+          name: CHROMA_COLLECTION,
         })
-        console.log(`✅ 集合 "${COLLECTION_NAME}" 创建成功!`)
+        console.log(`✅ 集合 "${CHROMA_COLLECTION}" 创建成功!`)
 
         console.log("\n📊 添加测试文档...")
         const testId = `test-${Date.now()}`
@@ -59,7 +55,7 @@ async function testChromaAuth() {
         const results = await collection.query({
           queryTexts: ["测试"],
           nResults: 1,
-          include: [IncludeEnum.Documents],
+          include: [IncludeEnum.documents],
         })
         
         if (results.documents && results.documents[0]) {

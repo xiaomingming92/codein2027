@@ -2,28 +2,17 @@ import * as dotenv from "dotenv"
 
 dotenv.config({ path: ".env.development" })
 
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_COLLECTION, CHROMA_AUTH_TOKEN, getChromaHeaders } from "../src/config/chroma-config"
 
 async function testWithFetch() {
   console.log("🧪 使用 fetch 直接测试 ChromaDB API...\n")
   
   console.log("配置:")
   console.log(`   URL: ${CHROMA_URL}`)
-  console.log(`   Collection: ${COLLECTION_NAME}`)
-  console.log(`   Auth: ${CHROMA_AUTH_TOKEN ? "已配置" : "未配置"}`)
+  console.log(`   Collection: ${CHROMA_COLLECTION}`)
   console.log("")
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  }
-
-  if (CHROMA_AUTH_TOKEN) {
-    headers["Authorization"] = `Bearer ${CHROMA_AUTH_TOKEN}`
-  }
+  const headers = getChromaHeaders()
 
   try {
     console.log("1️⃣ 列出所有集合...")
@@ -39,7 +28,7 @@ async function testWithFetch() {
       method: "POST",
       headers,
       body: JSON.stringify({
-        name: COLLECTION_NAME,
+        name: CHROMA_COLLECTION,
         get_or_create: true,
       }),
     })
@@ -88,7 +77,7 @@ async function testWithFetch() {
 
     console.log("\n🎉 ChromaDB API 测试成功!")
     console.log("\n💡 现在需要更新代码使用 fetch 而非 LangChain Chroma SDK")
-    console.log(`   集合 "${COLLECTION_NAME}" 已准备好使用`)
+    console.log(`   集合 "${CHROMA_COLLECTION}" 已准备好使用`)
     
   } catch (error) {
     console.error("\n❌ 测试失败!")

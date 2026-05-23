@@ -1,10 +1,6 @@
 import { getLLMConfigInfo, getLLMProviderType, getLLMConfig } from "../src/lib/llm/index"
 import { prisma } from "../src/lib/prisma"
-
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_AUTH_TOKEN, CHROMA_COLLECTION, getChromaHeaders } from "../src/config/chroma-config"
 
 interface DiagnosticResult {
   name: string
@@ -54,10 +50,7 @@ async function diagnoseLLM(): Promise<DiagnosticResult> {
 async function diagnoseChromaDB(): Promise<DiagnosticResult> {
   const startTime = Date.now()
   try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" }
-    if (CHROMA_AUTH_TOKEN) {
-      headers["Authorization"] = `Bearer ${CHROMA_AUTH_TOKEN}`
-    }
+    const headers = getChromaHeaders()
 
     const heartbeatResp = await fetch(`${CHROMA_URL}/api/v1/heartbeat`, { headers })
     if (!heartbeatResp.ok) {
@@ -70,7 +63,7 @@ async function diagnoseChromaDB(): Promise<DiagnosticResult> {
     }
     const collections = await collectionsResp.json() as Array<{ name: string; id: string }>
 
-    const targetCollection = collections.find((c) => c.name === (process.env.CHROMA_COLLECTION || "team_coordinator"))
+    const targetCollection = collections.find((c) => c.name === CHROMA_COLLECTION)
     let vectorCount = 0
     if (targetCollection) {
       const countResp = await fetch(`${CHROMA_URL}/api/v1/collections/${targetCollection.id}/count`, { headers })
@@ -84,7 +77,7 @@ async function diagnoseChromaDB(): Promise<DiagnosticResult> {
       name: "ChromaDB",
       status: "ok",
       message: `连通正常, 集合数: ${collections.length}, 目标集合向量数: ${vectorCount}`,
-      detail: `url=${CHROMA_URL}, collection=${process.env.CHROMA_COLLECTION || "team_coordinator"}`,
+      detail: `url=${CHROMA_URL}, collection=${CHROMA_COLLECTION}`,
       durationMs,
     }
   } catch (error) {

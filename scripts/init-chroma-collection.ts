@@ -4,18 +4,14 @@ import * as dotenv from "dotenv"
 
 dotenv.config({ path: ".env.development" })
 
-const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
-const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
-const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
-const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
+import { CHROMA_URL, CHROMA_COLLECTION, CHROMA_AUTH_TOKEN } from "../src/config/chroma-config"
 
 async function initializeChroma() {
   console.log("🚀 初始化 ChromaDB 集合...\n")
   
   console.log("配置信息:")
   console.log(`   URL: ${CHROMA_URL}`)
-  console.log(`   Collection: ${COLLECTION_NAME}`)
+  console.log(`   Collection: ${CHROMA_COLLECTION}`)
   console.log(`   Auth Token: ${CHROMA_AUTH_TOKEN ? "已配置" : "未配置"}`)
   console.log("")
 
@@ -30,7 +26,7 @@ async function initializeChroma() {
 
     const chromaConfig: Record<string, unknown> = {
       url: CHROMA_URL,
-      collectionName: COLLECTION_NAME,
+      collectionName: CHROMA_COLLECTION,
     }
 
     if (CHROMA_AUTH_TOKEN) {
@@ -65,7 +61,7 @@ async function initializeChroma() {
     console.log("✅ 测试数据已清理")
 
     console.log("\n🎉 ChromaDB 集合初始化完成！")
-    console.log(`   集合名称: ${COLLECTION_NAME}`)
+    console.log(`   集合名称: ${CHROMA_COLLECTION}`)
     console.log("\n💡 提示:")
     console.log("   现在可以重新运行同步操作了")
     

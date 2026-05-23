@@ -1,12 +1,11 @@
 import { Chroma, type ChromaLibArgs } from "@langchain/community/vectorstores/chroma"
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { Document } from "@langchain/core/documents"
+import { CHROMA_COLLECTION } from "../config/chroma-config"
 
 const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-3-small",
 })
-
-const CHROMA_COLLECTION = process.env.CHROMA_COLLECTION || "team_coordinator"
 
 const globalForChroma = globalThis as unknown as {
   vectorStore: Chroma | undefined
