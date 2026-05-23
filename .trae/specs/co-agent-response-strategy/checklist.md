@@ -1,0 +1,21 @@
+# Checklist: 裁决层 — ResponseStrategy 集中管理
+
+- [ ] `src/agents/response-strategy.ts` 新建完成，含 StrategyDescriptor 接口 + StrategyContext 接口 + registry 数组 + register() + resolveResponseStrategy()
+- [ ] 注册表含 8 个 descriptor + 1 个 catch-all 兜底（共 9 个策略）
+- [ ] 每个 descriptor 具有 id/matches/priority/apply 四个字段
+- [ ] matches 是自包含纯函数，不依赖外部状态（除 ctx 参数外）
+- [ ] priority: fast 策略=10, deep 精确策略=20, catch-all=1
+- [ ] resolveResponseStrategy 流程：filter(matches) → sort(priority desc) → pick first → 修饰器管道
+- [ ] 修饰器1：activeExperts 的 outputSections 合并
+- [ ] 修饰器2：evidence_digest 运行时降级（无非先验证据时关闭）
+- [ ] response.ts 构建 StrategyContext 并调用 resolveResponseStrategy
+- [ ] response.ts 不再使用硬编码三段分支
+- [ ] buildStreamingTextPrompt 追加 promptHint
+- [ ] buildDisplayFromState 按 strategy.sections 过滤
+- [ ] `DisplayContent.sections` 联合类型新增 `"evidence_digest"` / `"action_steps"` / `"timeline"`
+- [ ] `npx tsc --noEmit` 零类型错误
+- [ ] fast 回复 ≤ 2 句话，sections 仅含 conclusion
+- [ ] analysis 回复 sections 含 conclusion + evidence + reasoning + confidence + risks
+- [ ] planning 回复 sections 含 action_steps + timeline，不含 evidence_digest
+- [ ] question 回复 sections 含 evidence_digest，不含 reasoning
+- [ ] catch-all 未定义意图 → 回退到 deep:fallback

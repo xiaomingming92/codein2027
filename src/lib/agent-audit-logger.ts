@@ -1,5 +1,6 @@
 import * as fs from "fs/promises"
 import * as path from "path"
+import { prisma } from "@/lib/prisma"
 
 const PREFIX = "[AGENT-AUDIT]"
 
@@ -22,6 +23,46 @@ type AgentAuditPhase =
   | "RAG_SEARCH_FAIL"
   | "RAG_ZERO_RESULTS"
   | "RAG_EMPTY"
+
+// ──── Layer 2 运行时审计（始终开启，写入 AuditLog 表）────
+
+let currentUserId: string | undefined
+let currentTraceId: string | undefined
+
+export function setAuditContext(userId: string, traceId: string) {
+  currentUserId = userId
+  currentTraceId = traceId
+}
+
+export function clearAuditContext() {
+  currentUserId = undefined
+  currentTraceId = undefined
+}
+
+async function writeAuditLog(
+  action: string,
+  targetType: string,
+  targetId: string,
+  extra?: Record<string, unknown>,
+  reason?: string
+): Promise<void> {
+  if (!currentUserId) return
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId: currentUserId,
+        action,
+        targetType,
+        targetId: targetId.slice(0, 255),
+        traceId: currentTraceId,
+        afterState: extra ? (JSON.parse(JSON.stringify(extra)) as Record<string, unknown>) : undefined,
+        reason,
+      },
+    })
+  } catch (error) {
+    console.error("[AGENT-AUDIT] Failed to write AuditLog to DB:", error)
+  }
+}
 
 async function ensureLogDir(): Promise<void> {
   if (!ENABLE_FILE_LOG) return
@@ -61,6 +102,13 @@ export function agentAuditRequest(threadId: string | undefined, messageCount: nu
     messageCount,
     preview: userMessagePreview.slice(0, 100),
   })
+  writeAuditLog(
+    "CHAT_REQUEST",
+    "AGENT_SESSION",
+    threadId || "new",
+    { messageCount, preview: userMessagePreview.slice(0, 100) },
+    "用户发起新对话请求"
+  )
 }
 
 export function agentAuditResponse(threadId: string | undefined, durationMs: number, verdictType?: string, messageCount?: number) {
@@ -70,6 +118,13 @@ export function agentAuditResponse(threadId: string | undefined, durationMs: num
     verdictType: verdictType || "none",
     messageCount: messageCount || 0,
   })
+  writeAuditLog(
+    "CHAT_RESPONSE",
+    "AGENT_SESSION",
+    threadId || "new",
+    { durationMs, verdictType: verdictType || "none", messageCount: messageCount || 0 },
+    `响应完成，耗时 ${durationMs}ms`
+  )
 }
 
 export function agentAuditError(threadId: string | undefined, error: unknown, context?: string) {
@@ -81,6 +136,13 @@ export function agentAuditError(threadId: string | undefined, error: unknown, co
     error: errorMessage,
     stack: errorStack,
   })
+  writeAuditLog(
+    "CHAT_ERROR",
+    "AGENT_SESSION",
+    threadId || "new",
+    { context: context || "unknown", error: errorMessage, stack: errorStack },
+    `请求失败: ${errorMessage}`
+  )
 }
 
 export function agentAuditNodeStart(nodeName: string, detail?: string) {
@@ -129,6 +191,70 @@ export function agentAuditRetrieval(query: string, resultCount: number, evidence
     resultCount,
     evidenceCount,
   })
+}
+
+// ──── Layer 2 运行时审计专用函数（始终写 AuditLog 表）────
+
+export function agentAuditStrategy(
+  strategyId: string,
+  thinkingLevel: string,
+  intent: string,
+  candidateCount: number,
+  extra?: Record<string, unknown>
+) {
+  agentAudit("ROUTE", `策略匹配: ${strategyId} (thinkingLevel=${thinkingLevel}, intent=${intent}, 候选数=${candidateCount})`, {
+    strategyId,
+    thinkingLevel,
+    intent,
+    candidateCount,
+    ...extra,
+  })
+  writeAuditLog(
+    "STRATEGY_MATCHED",
+    "AGENT_STRATEGY",
+    strategyId,
+    { thinkingLevel, intent, candidateCount, ...extra },
+    `策略裁决: thinkingLevel=${thinkingLevel} intent=${intent} → ${strategyId}`
+  )
+}
+
+export function agentAuditExecutionQuality(
+  signals: Array<{ metric: string; severity: number; detail: string }>,
+  compositeScore: number,
+  adjustment?: Record<string, unknown>
+) {
+  const signalSummary = signals.map(s => `${s.metric}:${s.severity}`).join(",")
+  agentAudit("ROUTE", `执行度评估: score=${compositeScore} signals=[${signalSummary}]`, {
+    signals,
+    compositeScore,
+    adjustment,
+  })
+  writeAuditLog(
+    "EXECUTION_QUALITY",
+    "AGENT_SESSION",
+    `quality-score:${compositeScore}`,
+    { signals, compositeScore, adjustment },
+    `执行度: ${compositeScore} (${signalSummary})`
+  )
+}
+
+export function agentAuditCacheOperation(
+  operation: "hit" | "miss" | "set" | "evict",
+  cacheKey: string,
+  extra?: Record<string, unknown>
+) {
+  agentAudit("RETRIEVAL_RESULT", `缓存${operation}: ${cacheKey.slice(0, 50)}`, {
+    operation,
+    cacheKey: cacheKey.slice(0, 50),
+    ...extra,
+  })
+  writeAuditLog(
+    `CACHE_${operation.toUpperCase()}`,
+    "SEMANTIC_CACHE",
+    cacheKey.slice(0, 100),
+    { operation, ...extra },
+    `语义缓存: ${operation}`
+  )
 }
 
 export async function getAgentLogPath(): Promise<string> {

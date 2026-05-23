@@ -1,0 +1,21 @@
+# Checklist: 领域集成 — 管线消费 + 报告服务
+
+- [ ] retrieval 节点合并 activeExperts 的 evidenceFilter 为 ChromaDB 检索条件
+- [ ] 无 activeExperts 时 retrieval 节点行为不变（走默认检索逻辑）
+- [ ] reasoning 节点从 ANALYSIS_EXPERTS 取各激活专家的 promptTemplate + 注入 runtimeInputs
+- [ ] 无 activeExperts 时 reasoning 节点行为不变（走默认推理 prompt）
+- [ ] response 节点合并所有 activeExperts 的 outputSections 并集去重
+- [ ] response 节点将合并结果传给 ResponseStrategy 的修饰器管道
+- [ ] `src/services/report-generator.ts` 新建完成
+- [ ] generateReport() 支持 MD / PDF / DOCX / XLSX 四格式
+- [ ] inferDefaultFormat() 按专家类型推导默认格式
+- [ ] report/route.ts 新建完成：GET 端点 → 加载消息 → 生成报告 → 返回文件
+- [ ] `package.json` 新增依赖：docx / exceljs / pdfmake
+- [ ] `npx tsc --noEmit` 零类型错误
+- [ ] RAG 按专家过滤：activeExperts 含 roi_analysis → retrieval 仅检索"市场行情"+"经济数据"
+- [ ] 推理按专家维度：activeExperts 含 2 个专家 → reasoning prompt 含两独立分析维度块
+- [ ] MD 下载正常
+- [ ] XLSX 下载正常（含 3 个 Sheet）
+- [ ] DOCX 下载正常
+- [ ] PDF 下载正常
+- [ ] 默认格式推导：仅 roi_analysis → 默认 xlsx；仅 crop_compare → 默认 md；混合 → 默认 pdf
