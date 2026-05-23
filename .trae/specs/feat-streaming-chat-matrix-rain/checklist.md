@@ -1,0 +1,22 @@
+# Checklist
+
+- [x] `stream-chat-logger.ts` 已生成，包含 STREAM_START/TOKEN_CHUNK/STREAM_DONE/STREAM_FAIL 四个阶段
+- [x] `stream-chat-logger.ts` 使用 ADD 审计日志器模式（console + file 输出）
+- [x] `/api/agent/chat/stream` 返回 `text/event-stream` Content-Type
+- [x] SSE 端点逐 token 推送 `data: {"token":"xxx"}\n\n`
+- [x] SSE 端点完成时发送 `data: {"done":true,"fullContent":...,...}\n\n`
+- [x] SSE 端点错误时发送 `data: {"error":"xxx"}\n\n`
+- [x] SSE 端点包含 STREAM-AUDIT 日志记录
+- [x] ChatStore 包含 `streamCharPool`（最大 200 字符环形缓冲区）
+- [x] ChatStore 包含 `currentStreamContent` 和对应的 actions
+- [x] `handleSend` 使用 `response.body.getReader()` 逐块消费 SSE
+- [x] `handleSend` 逐 token 追加到 assistant 消息 content
+- [x] `handleSend` 逐 token 拆字符并添加到 streamCharPool
+- [x] `handleSend` 遇到 done 事件正确结束并持久化
+- [x] `handleSend` 遇到 error 事件设置 `threadStatus = "error"`
+- [x] MatrixRainBackground idle 时 canvas 隐藏（`display: none`）
+- [x] MatrixRainBackground streaming 时从 streamCharPool 取字符
+- [x] MatrixRainBackground 刚切换 streaming 时使用 MATRIX_RAIN_CHARS 后备
+- [x] `npx tsc --noEmit` 编译零错误（相关文件）
+- [x] `check_phase_symmetry` 通过
+- [x] `check_failure_path` 通过

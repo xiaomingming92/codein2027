@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Load environment-specific config
+// Run: NODE_ENV=development npx prisma migrate dev
+
+model User {
+  id         String   @id @default(cuid())
+  username   String   @unique
+  email      String   @unique
+  password   String
+  role       Role     @default(STAFF)
+  department String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tasks    Task[]      @relation("TaskAssignee")
+  created  Task[]      @relation("TaskCreator")
+  audits   AuditLog[]
+}
+
+enum Role {
+  ROOT
+  STAFF
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  config      Json?
+  createdBy   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tasks      Task[]
+  milestones Milestone[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        TaskType
+  status      TaskStatus @default(PENDING)
+  priority    Int       @default(0)
+
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User      @relation("TaskCreator", fields: [createdById], references: [id])
+
+  parentId String?  @unique
+  parent   Task?    @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children Task[]   @relation("TaskHierarchy")
+
+  startDate DateTime?
+  endDate   DateTime?
+  progress  Int       @default(0)
+
+  economicTarget Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dependencies TaskDependency[] @relation("TaskFrom")
+  dependents   TaskDependency[] @relation("TaskTo")
+}
+
+enum TaskType {
+  DEVELOPMENT
+  DESIGN
+  TESTING
+  DEPLOYMENT
+  REVIEW
+  OTHER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+model TaskDependency {
+  id         String @id @default(cuid())
+  fromTaskId String
+  fromTask   Task   @relation("TaskFrom", fields: [fromTaskId], references: [id], onDelete: Cascade)
+  toTaskId   String
+  toTask     Task   @relation("TaskTo", fields: [toTaskId], references: [id], onDelete: Cascade)
+  type       String @default("FS")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  targetDate  DateTime
+  status      String   @default("PENDING")
+  economicGoal Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Document {
+  id          String      @id @default(cuid())
+  sourceType  SourceType  @default(PROJECT_DOC)
+  projectId   String?     // 项目目录标识（不再强制关联Project表）
+  name        String
+  type        String
+  content     String?
+  filePath    String?
+  vectorIds   String[]
+  contentHash String?
+  tags        String[]
+  status      DocStatus   @default(PENDING)
+  version     Int         @default(1)
+  metadata    Json?
+  taskId      String?
+  userId      String?
+
+  createdBy   String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([name, version, sourceType])
+}
+
+enum SourceType {
+  PROJECT_DOC
+  KNOWLEDGE_UPDATE
+}
+
+enum DocStatus {
+  PENDING_INDEX  // 待索引: 上传后等待同步确认（KNOWLEDGE_UPDATE 专用）
+  PENDING        // 待处理: PROJECT_DOC 初始状态，等待同步
+  INDEXING       // 正在索引: 同步过程中
+  INDEXED        // 已索引: 可以被检索
+  OUTDATED       // 已过期: 被新版本取代
+  ERROR          // 错误: 向量化失败
+}
+
+model ChatThread {
+  id          String   @id @default(cuid())
+  title       String   @default("新对话")
+  projectId   String?
+  userId      String
+  intent      String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages    ChatMessage[]
+  chainTraces ChainTraceRecord[]
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  threadId    String
+  thread      ChatThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role        MessageRole
+  content     String
+  attachments String[]
+  metadata    Json?
+  traceId     String?
+  createdAt   DateTime    @default(now())
+}
+
+model ChainTraceRecord {
+  id                 String      @id @default(cuid())
+  threadId           String
+  thread             ChatThread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  traceId            String      @unique
+  trigger            Json
+  nodes              Json
+  evidenceDiff       Json
+  totalDurationMs    Int?
+  createdAt          DateTime    @default(now())
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Verdict {
+  id           String     @id @default(cuid())
+  projectId    String
+  query        String
+  type         VerdictType
+  conclusion   Json
+  evidenceChain Json
+  confidence   Json
+
+  createdBy   String
+  createdAt   DateTime @default(now())
+}
+
+enum VerdictType {
+  PRIORITY_DECISION
+  RISK_ASSESSMENT
+  RESOURCE_ALLOCATION
+  COST_BENEFIT
+  TIMELINE_ESTIMATION
+  PATH_SELECTION
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  targetType String
+  targetId   String
+  traceId    String?
+  beforeState Json?
+  afterState  Json?
+  reason     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([traceId])
+}
+
+enum EconomicFactorType {
+  LAND
+  CROP
+  EQUIPMENT
+  LABOR
+  CAPITAL
+  TIME
+}
+
+model EconomicFactor {
+  id        String             @id @default(cuid())
+  projectId String
+  type      EconomicFactorType
+  data      Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+

@@ -1,0 +1,82 @@
+# ═══════════════════════════════════════════════════════
+# 模型配置文件 — 团队协调智能体
+# ═══════════════════════════════════════════════════════
+#
+# 说明：
+#   - 本文件是模型配置的唯一来源 (Single Source of Truth)
+#   - apiKeyEnv 字段指定环境变量名称，不在配置文件中暴露密钥
+#   - 每个模型条目可以覆盖 defaults 中的值
+#   - 本地模型 (ollama) 不需要 apiKey，用户通过界面自行添加和测试
+#   - ollama 模板定义在此仅供参考，实际模型由用户在界面上添加
+#   - multimodal = true 表示模型支持图片输入，聊天界面将显示图片上传按钮
+#
+# 修改后需重启服务生效
+# ═══════════════════════════════════════════════════════
+
+
+# ─── 云端模型默认值 ────────────────────────────────────
+# 当 [[cloud]] 条目中省略某字段时，自动使用此处的默认值
+
+[defaults.cloud]
+baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+apiKeyEnv = "OPENAI_API_KEY_DASHSCOPE"
+temperature = 0.1
+maxTokens = 4000
+multimodal = false
+
+
+# ─── 本地模型默认值 ────────────────────────────────────
+# 用户添加本地模型时，以下值作为表单预填
+
+[defaults.ollama]
+baseURL = "http://localhost:11434"
+temperature = 0.1
+maxTokens = 4000
+multimodal = false
+
+
+# ─── 云端模型列表 ──────────────────────────────────────
+# 必填字段: model
+# 可选字段: name, providerLabel, baseURL, apiKeyEnv, temperature, maxTokens, multimodal
+
+[[cloud]]
+model = "deepseek-v4-flash"
+name = "DeepSeek V4 Flash"
+providerLabel = "阿里云百炼"
+baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+apiKeyEnv = "OPENAI_API_KEY_DASHSCOPE"
+
+[[cloud]]
+model = "glm-5"
+name = "GLM-5"
+providerLabel = "阿里云百炼"
+baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+apiKeyEnv = "OPENAI_API_KEY_DASHSCOPE"
+multimodal = true
+
+[[cloud]]
+model = "qwen3.5-omni-plus"
+name = "Qwen 3.5 Omni Plus"
+providerLabel = "阿里云百炼"
+baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+apiKeyEnv = "OPENAI_API_KEY_DASHSCOPE"
+multimodal = true
+
+# ─── 本地模型模板 ──────────────────────────────────────
+# 这些条目不会自动加载到模型列表
+# 用户在界面中添加本地模型时，可作为快捷模板选择
+
+[[ollama_template]]
+model = "qwen2.5"
+name = "Qwen 2.5"
+providerLabel = "Ollama"
+
+[[ollama_template]]
+model = "llama3"
+name = "Llama 3"
+providerLabel = "Ollama"
+
+[[ollama_template]]
+model = "deepseek-r1"
+name = "DeepSeek R1"
+providerLabel = "Ollama"

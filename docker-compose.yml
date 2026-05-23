@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: team-coordinator-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: team_coordinator
+      POSTGRES_USER: team_admin
+      POSTGRES_PASSWORD: team_secure_pass_2024
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: "Asia/Shanghai"
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=512MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 512M
+    networks:
+      - team-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U team_admin -d team_coordinator"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:0.4.24
+    container_name: team-coordinator-chroma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data/chroma:/chroma/chroma
+    environment:
+      TZ: "Asia/Shanghai"
+      CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER: "chromadb.auth.token.TokenAuthServerProvider"
+      CHROMA_SERVER_AUTH_TOKEN_PROVIDER: "chromadb.auth.token.TokenConfigServerTokenProvider"
+      CHROMA_SERVER_AUTH_TOKENS: "team-coordinator-secret-token-2026"
+      CHROMA_SERVER_AUTH_CREDENTIALS: "team-coordinator-secret-token-2026"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+    networks:
+      - team-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+networks:
+  team-network:
+    driver: bridge
