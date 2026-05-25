@@ -5,7 +5,7 @@
 ### 全球首个哲学驱动 · 长周期AI自主开发工程化实现
 
 [![GitHub Stars](https://img.shields.io/github/stars/xiaomingming92/codein2027)](https://github.com/xiaomingming92/codein2027)
-[![License](https://img.shields.io/badge/License-MIT%2BADD%E7%89%B9%84%E5%BC%8F%E5%90%8D%E6%9D%A1%E6%9D%A1-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-MIT%2BADD-blue)](./LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/xiaomingming92/codein2027/commits/main)](https://github.com/xiaomingming92/codein2027)
 [![Runtime](https://img.shields.io/badge/Runtime-Docker%2FPodman%2FNode.js-green)]()
 
