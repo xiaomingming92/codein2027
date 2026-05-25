@@ -4,6 +4,8 @@
 
 现有 `agent-audit-logger.ts` 只写 console + 文件（文件仅 dev 开启），不写 `AuditLog` DB 表。生产环境 `NODE_ENV=production` 时，AuditLog 表为空，前端无法查询"谁在什么时候做了什么"。需要在前面所有功能稳定后，补齐 Layer 2 运行时审计（始终写 AuditLog 表），并建立 Layer 1 开发审计（仅 dev 启用，节点级 debug trace + 微调数据导出）。
 
+**Step 8 采用新的三层审计边界，覆盖旧历史规则（`project_rules.md`）中"Agent 节点事件写入 AuditLog 表"的策略**。原因：生产 AuditLog 面向 UI 和最终用户，不适合记录高频节点级内部细节（NODE_START/NODE_END/LLM_CALL），否则会造成表膨胀、查询噪音和隐私风险。节点级 trace 迁移为 L1 debug trace（仅 dev），L2 仅保留业务和策略层高价值事件。
+
 ## What Changes
 
 - 升级 `agent-audit-logger.ts` 为真正的 Layer 2 运行时审计（始终写 AuditLog 表），新增 agentAuditStrategy/ExecutionQuality/CacheOperation 函数

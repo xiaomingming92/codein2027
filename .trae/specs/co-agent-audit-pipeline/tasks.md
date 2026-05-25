@@ -1,5 +1,23 @@
 # Tasks: 三层审计管线
 
+## Preconditions
+
+- [ ] 已执行 `session-init` SKILL
+- [ ] 已执行 `add-paradigm` SKILL（Step 0 文档先行）
+- [ ] 上游第1-6轮 ADD-7 审计记录存在（`query_audit_logs({ sinceMinutes: 5760, keyword: "EVOLUTION_LOOP_INTEGRATED" })`）
+- [ ] `npx tsc --noEmit` 在上游完成后通过
+- [ ] 所有业务功能稳定（管线消费、缓存、演化闭环已上线）
+
+## Forbidden
+
+- 禁止修改 Prisma Schema（`prisma/schema.prisma`）
+- 禁止修改前端组件（React/Vue 组件文件）
+- 禁止覆盖或重构已有 stream-bus / SSE 事件总线逻辑
+- 禁止将节点级 debug trace（NODE_START/NODE_END/LLM_CALL）写入生产 AuditLog 表
+- 禁止简化代码实现，一切以代码高质量为衡量标准
+- 禁止 clearAuditContext 不在 finally 块中（防止跨请求状态泄漏）
+- 禁止生产环境（NODE_ENV=production）写入 debug trace 文件
+
 - [ ] Task 1: 升级 agent-audit-logger.ts 为 Layer 2
   - [ ] 修改 `src/lib/agent-audit-logger.ts`
   - [ ] 新增 `import { prisma }` 引用
@@ -69,3 +87,33 @@
 - Task 6 依赖 Task 1（需要 agentAudit* 新函数）
 - Task 6 各子任务可并行
 - Task 7 依赖 Task 1-6 全部完成
+
+## Verification
+
+- [ ] `npx tsc --noEmit`
+- [ ] `npm run lint`（如项目已配置）
+- 当前 spec `checklist.md` 全部通过
+- L2: `NODE_ENV=production` → AuditLog 表有 CHAT_REQUEST / STRATEGY_MATCHED / CHAT_RESPONSE
+- L2: AuditLog 表无 NODE_START/NODE_END/LLM_CALL 节点级记录
+- L1: `NODE_ENV=development` → `logs/debug/` 有文件
+- L1: `NODE_ENV=production` → `logs/debug/` 无新文件
+- 当前对话 ADD-7 `record_dev_operation` 已逐文件记录
+
+## 对话启动（将此段粘贴给新的 LLM 对话）
+
+你在执行 farm-agent 改进的 **第7轮（最后一轮）**（三层审计管线）。上游第1-6轮已完成全部业务功能。
+
+**启动步骤（按顺序）：**
+1. 执行 `session-init` SKILL → `query_audit_logs({ sinceMinutes: 5760 })` 确认第1-6轮全部完成
+2. 执行 `add-paradigm` SKILL
+3. 阅读 `specs/co-agent-audit-pipeline/spec.md`
+4. 按本文档 tasks.md 顺序执行。执行优先级：L2 高层 AuditLog → traceId 串联 → L1 debug trace → 微调导出
+
+**文件清单（2新建+5修改）：**
+`agent-audit-logger.ts`(改-L2升级) / `debug-tracer.ts`(新-L1) / `debug/route.ts`(新-L1) / `stream/route.ts`(改-L1+L2) / `response.ts`(改-L2) / `path-metrics.ts`(改-L2) / `semantic-cache.ts`(改-L2)
+
+**⚠️ agent-audit-logger.ts 历史混合式日志器，升级为 L2 但保持旧函数（NodeStart/End/Route/Retrieval）仍只写 console+file，不写 AuditLog DB。**
+**⚠️ clearAuditContext() 必须在 stream/route.ts 的 finally 块中调用，防止跨请求状态泄漏。**
+**⚠️ 生产环境 NODE_ENV=production 时 debug-tracer 必须整体跳过，不可写任何文件。**
+
+**关键提醒：** 当前执行第7轮/7（最后一轮），完成后整个 farm-agent 改进计划完工。record_dev_operation 后即可验收。

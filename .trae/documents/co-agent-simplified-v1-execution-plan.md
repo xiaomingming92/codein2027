@@ -1,13 +1,15 @@
-# 执行计划：co-agent 简化版 7 轮对话拆分
+# 执行计划：farm-agent（7+1 轮原子事务拓扑）
+
+> **当前有效。** 本文档定义 farm-agent 改进计划的 7+1 轮原子事务拓扑；执行入口为 [co-agent-conversation-handoff.md](./co-agent-conversation-handoff.md)。前 7 轮拆分以业务原子闭包为主，以对话上下文容量为辅，确保每轮都能独立提交、验证、审计和恢复；第 8 轮是前 7 轮收敛后的架构合流轮，用于统一 Global State Model、Cognitive Event Bus 与 Policy Update Loop。
 
 ## 元信息
 
 - **父 Plan**: [co-agent-simplified-v1.md](./co-agent-simplified-v1.md)
 - **目标仓库**: `/home/xmm/ai/farm-agent`
 - **创建时间**: 2026-05-23
-- **设计依据**: 避免单次对话上下文过载导致代码质量下降，将 8 个 Step 拆分为 7 轮独立对话
-- **总文件数**: 约 27 个独立文件（部分文件在多轮中递进修改）
-- **总操作数**: 10 新建 + 26 修改
+- **设计依据**: 避免单次对话上下文过载导致代码质量下降，将原 8 个 Step 拆分为前 7 轮局部闭包；将 Global State Model / Cognitive Event Bus / Policy Loop 作为第 8 轮后续架构合流闭包
+- **总文件数**: 前 7 轮约 27 个独立文件（部分文件在多轮中递进修改）；第 8 轮文件数待独立 spec 确认
+- **总操作数**: 前 7 轮 10 新建 + 26 修改；第 8 轮独立统计
 
 ---
 
@@ -46,6 +48,10 @@
                  ▼
            第7轮 (审计管线)
              Step 8
+                 │
+                 ▼
+           第8轮 (架构合流)
+             Global State Model + Cognitive Event Bus + Policy Loop
 ```
 
 ---
@@ -532,6 +538,67 @@ GET /api/agent/chat/threads/{threadId}/debug?format=fine-tuning
 | 9 | **质量筛选** | 导出后检查 | followUpCount>0 / confidence<50 被排除 |
 | 10 | **缓存审计** | 相同问题发两次 → 查 AuditLog | CACHE_MISS + CACHE_SET（第1次），CACHE_HIT（第2次） |
 | 11 | **执行度审计** | 多轮对话（≥5轮）→ 查 AuditLog | afterState 含 signals + compositeScore |
+
+---
+
+## 第8轮：架构合流闭包 — Global State Model + Cognitive Event Bus + Policy Loop
+
+### 上下文
+
+| 属性 | 内容 |
+|------|------|
+| 覆盖阶段 | 前 7 轮全部完成后的 L4 架构合流 |
+| 文件数 | 待独立 spec 确认 |
+| 依赖 | 第1-7轮全部完成，且 ADD-7 审计可通过 query_audit_logs 完整恢复 |
+| 独立验证 | GlobalSystemState 可表达 chat/agent/memory/tool/policy/audit/feedback 全局状态；Cognitive Event Bus 可串联 Thought → Decision → Action → Feedback → PolicyUpdate |
+| 设计密度 | ⭐⭐⭐⭐⭐——这是从 L2/L3 初期迈向 L4 adaptive coordination system 的架构闭包 |
+
+### 为什么第8轮必须独立
+
+前 7 轮的目标是局部闭包收敛：类型、策略、上下文、专家消费、缓存、演化、审计。GPT 结构评价指出，系统真正的问题不是功能不足，而是四套系统并行发展但没有统一认知与执行内核：
+
+```text
+交互系统: chat-thread / chat-ui / streaming / input
+记忆系统: RAG / semantic-cache / retrieval
+认知系统: co-agent / reasoning / response-strategy / expert-registry / evolution-loop
+执行系统: event-bus / mcp-server / audit / workspace-pmo
+```
+
+第8轮不能提前塞进前7轮，否则会破坏原子事务边界；它必须在前7轮稳定后，将这些闭包合流。
+
+### 第8轮核心目标
+
+1. **Global State Model**
+   - 定义 `GlobalSystemState`，统一 chat state、agent state、memory state、tool execution state、policy state、audit state、feedback state。
+   - 明确 `AgentState` 与 `GlobalSystemState` 的关系：第1轮收敛后的 AgentState 是 Global State 的认知子域，不再是孤立局部状态。
+
+2. **Cognitive Event Bus**
+   - 将 event bus 从 UI/logging/streaming 事件升级为认知执行事件中枢。
+   - 标准事件链：`ThoughtStarted → IntentDetected → RouteDecided → EvidenceRetrieved → ReasoningPathGenerated → StrategyResolved → ActionProposed → FeedbackObserved → PolicyUpdated`。
+
+3. **Policy Update Loop**
+   - 将第6轮 path metrics / TTL stats / turnHistory 与第7轮 L2 AuditLog 合并为可解释策略更新闭环。
+   - 每次策略更新必须具备 input metrics、decision reason、affected policy、rollback data。
+
+4. **Competition-based Agent Execution**
+   - 在 Global State 和 Cognitive Event Bus 完成后，引入 multiple reasoning paths、scoring、arbitration。
+   - 多路径必须共享同一 evidence/reference/state schema，否则禁止比较和仲裁。
+
+### 第8轮禁止事项
+
+- 禁止回头破坏前7轮已收敛的文件边界。
+- 禁止把 Global State Model 做成只读文档而没有真实状态转换接口。
+- 禁止把 Cognitive Event Bus 继续停留在日志事件或 UI 事件层。
+- 禁止在无统一 state schema 的情况下实现 multi-agent competition。
+- 禁止绕过 ADD-7；第8轮本身也必须逐文件记录并 query_audit_logs 回查。
+
+### 第8轮预期 spec
+
+```text
+.trae/specs/farm-agent-global-state/spec.md
+.trae/specs/farm-agent-global-state/tasks.md
+.trae/specs/farm-agent-global-state/checklist.md
+```
 
 ---
 
