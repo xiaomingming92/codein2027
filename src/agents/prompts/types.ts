@@ -1,3 +1,5 @@
+import type { EvidenceRef, ThinkingLevel } from "@/types/evidence"
+
 export interface PromptTemplate<TInput, TOutput> {
   id: string
   name: string
@@ -16,6 +18,7 @@ export interface IntentionInput {
 
 export interface IntentionOutput {
   intent: "analysis" | "planning" | "question" | "decision" | "creation" | "modification" | "chat"
+  thinkingLevel?: ThinkingLevel
   entities: {
     projectId?: string
     taskId?: string
@@ -29,12 +32,7 @@ export interface IntentionOutput {
 
 export interface ReasoningInput {
   query: string
-  evidenceList: Array<{
-    id: string
-    source: string
-    content: string
-    reliability: number
-  }>
+  evidenceList: EvidenceRef[]
 }
 
 export interface ReasoningOutput {
@@ -60,11 +58,7 @@ export interface ReasoningOutput {
 
 export interface VerdictInput {
   query: string
-  evidenceList: Array<{
-    id: string
-    source: string
-    content: string
-  }>
+  evidenceList: EvidenceRef[]
   weights: Record<string, number>
 }
 
@@ -91,11 +85,7 @@ export interface VerdictOutput {
 export interface InteractionPointInput {
   intent: "analysis" | "planning"
   query: string
-  evidenceChain: Array<{
-    id: string
-    source: string
-    content: string
-  }>
+  evidenceChain: EvidenceRef[]
   reasoningResult: {
     conclusion: string
     actions: string[]

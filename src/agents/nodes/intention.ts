@@ -4,6 +4,11 @@ import { agentAudit } from "@/lib/agent-audit-logger"
 import { intentionPrompt } from "@/agents/prompts"
 import type { IntentionInput, IntentionOutput } from "@/agents/prompts"
 import { NodeStreamController } from "@/agents/node-stream-controller"
+import type { ThinkingLevel } from "@/types/evidence"
+
+function resolveThinkingLevel(intent: string | undefined): ThinkingLevel {
+  return intent === "chat" ? "fast" : "deep"
+}
 
 export async function intentionNode(state: typeof AgentState.State) {
   const { messages, explicitIntent } = state
@@ -47,9 +52,12 @@ export async function intentionNode(state: typeof AgentState.State) {
   }
 
   if (explicitIntent) {
+    const thinkingLevel = resolveThinkingLevel(explicitIntent)
+
     agentAudit("NODE_END", "intention: explicit intent", {
       source: "explicit",
       intent: explicitIntent,
+      thinkingLevel,
     })
 
     stream.structuredOutput({
@@ -57,6 +65,7 @@ export async function intentionNode(state: typeof AgentState.State) {
         type: explicitIntent,
         source: "explicit",
         original: queryText,
+        thinkingLevel,
       },
     })
 
@@ -64,6 +73,7 @@ export async function intentionNode(state: typeof AgentState.State) {
       currentTask: {
         ...state.currentTask,
         intent: explicitIntent,
+        thinkingLevel,
         entities: state.currentTask?.entities || {},
         query: queryText,
       },
@@ -88,20 +98,26 @@ export async function intentionNode(state: typeof AgentState.State) {
       throw new Error("Validation failed")
     }
     parsed = result
+    const thinkingLevel = resolveThinkingLevel(result.intent)
     agentAudit("NODE_END", "intention parse success", {
       source: "llm_parsed",
       intent: result.intent,
+      thinkingLevel,
       keywords: result.entities.keywords,
     })
-  } catch (_e) {
-    agentAudit("NODE_END", "intention parse fallback to chat", { fallback: true })
+  } catch {
+    const thinkingLevel = resolveThinkingLevel(parsed.intent)
+    agentAudit("NODE_END", "intention parse fallback to chat", { fallback: true, thinkingLevel })
   }
+
+  const thinkingLevel = resolveThinkingLevel(parsed.intent)
 
   stream.structuredOutput({
     intent: {
       type: parsed.intent,
       source: "llm_parsed",
       original: queryText,
+      thinkingLevel,
     },
   })
 
@@ -109,6 +125,7 @@ export async function intentionNode(state: typeof AgentState.State) {
     currentTask: {
       ...state.currentTask,
       intent: parsed.intent,
+      thinkingLevel,
       entities: {
         ...parsed.entities,
         ...(parsed.multimodal ? { multimodal: parsed.multimodal } : {}),

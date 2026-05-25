@@ -1,6 +1,7 @@
 import * as fs from "fs/promises"
 import * as path from "path"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 
 const PREFIX = "[AGENT-AUDIT]"
 
@@ -55,7 +56,7 @@ async function writeAuditLog(
         targetType,
         targetId: targetId.slice(0, 255),
         traceId: currentTraceId,
-        afterState: extra ? (JSON.parse(JSON.stringify(extra)) as Record<string, unknown>) : undefined,
+        afterState: extra ? (JSON.parse(JSON.stringify(extra)) as Prisma.InputJsonValue) : undefined,
         reason,
       },
     })

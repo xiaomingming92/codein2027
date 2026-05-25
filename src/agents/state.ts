@@ -1,5 +1,7 @@
 import { Annotation } from "@langchain/langgraph"
 import type { StructuredAgentResponse, InteractionPoint } from "./types"
+import type { Evidence, ThinkingLevel } from "@/types/evidence"
+import type { AnalysisContext } from "@/services/analysis-context"
 
 interface Message {
   role: string
@@ -26,22 +28,9 @@ interface Project {
 interface CurrentTask {
   id?: string
   intent?: string
+  thinkingLevel?: ThinkingLevel
   entities?: Record<string, unknown>
   query?: string
-}
-
-interface Evidence {
-  id: string
-  source: string
-  type: string
-  content: string
-  reliability: number
-  relevance: number
-  timestamp: string
-  metadata: Record<string, unknown>
-  expandable?: boolean
-  detailUrl?: string
-  score?: number
 }
 
 interface VerdictConclusion {
@@ -119,6 +108,7 @@ export const AgentState = Annotation.Root({
   explicitIntent: Annotation<string | null>(),
   structuredResponse: Annotation<StructuredAgentResponse | null>(),
   conversationContext: Annotation<Record<string, unknown>>(),
+  analysisContext: Annotation<AnalysisContext | null>(),
   pendingInteraction: Annotation<InteractionPoint | null>(),
 })
 

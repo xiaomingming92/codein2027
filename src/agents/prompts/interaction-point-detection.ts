@@ -7,7 +7,7 @@ export const interactionPointDetectionPrompt: PromptTemplate<InteractionPointInp
 
   build(input: InteractionPointInput): string {
     const evidenceSummary = input.evidenceChain
-      .map((e) => `[${e.id}] ${e.source}: ${e.content.substring(0, 100)}`)
+      .map((e) => `[${e.id}] ${e.source}: ${e.contentExcerpt || "无摘要"}`)
       .join("\n")
 
     const intentLabel = input.intent === "analysis" ? "分析" : "规划"

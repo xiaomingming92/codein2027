@@ -7,7 +7,7 @@ export const verdictPrompt: PromptTemplate<VerdictInput, VerdictOutput> = {
 
   build(input: VerdictInput): string {
     const evidenceList = input.evidenceList
-      .map((e) => `[${e.id}] 来源: ${e.source}, 内容: ${e.content}, 权重: ${input.weights[e.id] || 0}`)
+      .map((e) => `[${e.id}] 来源: ${e.source}, 内容摘要: ${e.contentExcerpt || "无摘要"}, 权重: ${input.weights[e.id] || 0}`)
       .join("\n")
 
     return `

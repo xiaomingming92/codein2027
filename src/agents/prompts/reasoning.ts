@@ -7,7 +7,7 @@ export const reasoningPrompt: PromptTemplate<ReasoningInput, ReasoningOutput> = 
 
   build(input: ReasoningInput): string {
     const evidenceList = input.evidenceList
-      .map((e) => `[${e.id}] 来源: ${e.source}, 内容: ${e.content}, 可靠性: ${e.reliability}`)
+      .map((e) => `[${e.id}] 来源: ${e.source}, 内容摘要: ${e.contentExcerpt || "无摘要"}, 可靠性: ${e.reliability}`)
       .join("\n")
 
     return `

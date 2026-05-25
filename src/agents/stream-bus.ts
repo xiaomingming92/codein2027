@@ -11,6 +11,7 @@ export interface EvidenceFoundEvent {
   type: "evidence_found"
   evidence: {
     id: string
+    chunkId?: string
     source: string
     type: string
     relevance: number
@@ -151,6 +152,8 @@ function buildAuditDetail(event: StreamEvent): string {
       return `完成: threadId=${event.threadId}`
     case "error":
       return `错误: ${event.message}`
+    case "streaming_node":
+      return `节点${event.status}: ${event.nodeName}`
   }
 }
 

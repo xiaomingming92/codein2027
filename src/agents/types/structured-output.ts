@@ -15,6 +15,7 @@ export interface StructuredAgentResponse {
 export interface StructuredEvidenceChain {
   evidences: Array<{
     id: string
+    chunkId?: string
     source: string
     type: string
     content: string
@@ -81,7 +82,16 @@ export interface InteractionPoint {
 export interface DisplayContent {
   summary: string
   sections: Array<{
-    type: "conclusion" | "evidence" | "reasoning" | "confidence" | "risk" | "interaction"
+    type:
+      | "conclusion"
+      | "evidence"
+      | "evidence_digest"
+      | "reasoning"
+      | "confidence"
+      | "risk"
+      | "interaction"
+      | "action_steps"
+      | "timeline"
     title: string
     content: string
     expandable: boolean

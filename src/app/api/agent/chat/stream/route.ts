@@ -2,7 +2,6 @@ import { NextRequest } from "next/server"
 import type { ChatRequest } from "@/dto/agent.dto"
 import { agentAuditError } from "@/lib/agent-audit-logger"
 import {
-  chatPersistAudit,
   chatPersistAuditPhaseStart,
   chatPersistAuditPhaseEnd,
 } from "@/lib/chat-persistence-logger"
@@ -13,8 +12,10 @@ import { setLLMConfig } from "@/lib/llm/index"
 import { resolveApiKeyForModel } from "@/config/model-config"
 import { streamChatAudit } from "@/lib/stream-chat-logger"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { registerStreamBus, unregisterStreamBus } from "@/agents/stream-bus"
 import type { StreamEvent } from "@/agents/stream-bus"
+import { getAnalysisContext, saveAnalysisContext } from "@/services/analysis-context"
 
 export const runtime = "nodejs"
 
@@ -58,7 +59,7 @@ async function auditTraceEvent(
         targetType: "STREAM_TRACE",
         targetId: traceId,
         traceId,
-        afterState: detail,
+        afterState: detail as Prisma.InputJsonValue,
         reason: `${action} traceId=${traceId}`,
       },
     })
@@ -190,6 +191,8 @@ export async function POST(request: NextRequest) {
         await chatPersistence.addMessage(threadId, "USER", lastMsg?.content || "", undefined, undefined)
         chatPersistAuditPhaseEnd("MESSAGE_SAVE", "用户消息已保存")
 
+        const analysisCtx = await getAnalysisContext(threadId)
+
         const { streamAgent, startChainTrace, endChainTrace } = await import("@/agents")
 
         const tracer = startChainTrace(requestThreadId, {
@@ -217,7 +220,8 @@ export async function POST(request: NextRequest) {
             project,
             explicitIntent: intent || null,
             conversationContext: { traceId, modelConfig },
-          } as any,
+            analysisContext: analysisCtx,
+          },
           { configurable: { thread_id: requestThreadId } }
         )
 
@@ -285,6 +289,8 @@ export async function POST(request: NextRequest) {
           completedAt: new Date().toISOString(),
         }
         await chatPersistence.saveAuditData(threadId, auditData)
+
+        await saveAnalysisContext(threadId, analysisCtx)
 
         streamChatAudit("STREAM_DONE", `流式完成`, {
           durationMs,

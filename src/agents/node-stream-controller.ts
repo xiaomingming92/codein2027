@@ -38,6 +38,7 @@ export class NodeStreamController {
 
   evidenceFound(evidence: {
     id: string
+    chunkId?: string
     source: string
     type: string
     relevance: number

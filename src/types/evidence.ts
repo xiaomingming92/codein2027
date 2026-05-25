@@ -1,6 +1,22 @@
+export type EvidenceSource =
+  | "document"
+  | "knowledge"
+  | "knowledge_empty"
+  | "project_context"
+  | "keywords"
+  | "multimodal"
+  | "task"
+  | "economic"
+  | "history"
+  | "team_input"
+  | "sensor"
+
+export type ThinkingLevel = "fast" | "deep"
+
 export interface Evidence {
   id: string
-  source: "document" | "task" | "economic" | "history" | "team_input" | "sensor"
+  chunkId?: string
+  source: EvidenceSource
   type: string
   content: string
   reliability: number
@@ -8,6 +24,28 @@ export interface Evidence {
   timestamp: string
   expires_at?: string
   metadata: Record<string, unknown>
+  expandable?: boolean
+  detailUrl?: string
+  score?: number
+}
+
+export interface EvidenceRef {
+  id: string
+  chunkId?: string
+  source: EvidenceSource
+  reliability: number
+  relevance: number
+  docName?: string
+  contentExcerpt?: string
+}
+
+export interface EvidenceSummary {
+  id: string
+  chunkId?: string
+  source: EvidenceSource
+  type: string
+  relevance: number
+  summary: string
 }
 
 export interface EvidenceChain {

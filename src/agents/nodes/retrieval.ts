@@ -5,6 +5,38 @@ import { getActiveTracer } from "@/agents"
 import { NodeStreamController } from "@/agents/node-stream-controller"
 import { randomUUID } from "crypto"
 
+function readMetadataString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key]
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
+function readMetadataNumberOrString(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key]
+  if (typeof value === "string" && value.length > 0) return value
+  if (typeof value === "number") return String(value)
+  return undefined
+}
+
+function extractChunkId(metadata: Record<string, unknown> | undefined): string | undefined {
+  const directChunkId = readMetadataString(metadata, "chunkId")
+  if (directChunkId) return directChunkId
+
+  const vectorId = readMetadataString(metadata, "vectorId")
+  if (vectorId) return vectorId
+
+  const id = readMetadataString(metadata, "id")
+  if (id) return id
+
+  const documentId = readMetadataString(metadata, "documentId")
+  const chunkIndex = readMetadataNumberOrString(metadata, "chunkIndex")
+  if (documentId && chunkIndex) return `${documentId}:${chunkIndex}`
+
+  const chunkIdSnake = readMetadataNumberOrString(metadata, "chunk_id")
+  if (documentId && chunkIdSnake) return `${documentId}:${chunkIdSnake}`
+
+  return undefined
+}
+
 export async function retrievalNode(state: typeof AgentState.State) {
   const { currentTask, project } = state
   const stream = NodeStreamController.fromState(state, "retrieval")
@@ -67,8 +99,10 @@ export async function retrievalNode(state: typeof AgentState.State) {
         for (const result of knowledgeResults) {
           const documentName = (result.metadata?.name as string) || (result.metadata?.fileName as string) || "未知文档"
           const evidenceId = `e_know_${randomUUID().substring(0, 8)}`
+          const chunkId = extractChunkId(result.metadata)
           evidenceChain.push({
             id: evidenceId,
+            chunkId,
             source: "knowledge",
             type: isFullDocumentRequest ? "full_document" : "document_chunk",
             content: result.content,
@@ -87,6 +121,7 @@ export async function retrievalNode(state: typeof AgentState.State) {
 
           stream.evidenceFound({
             id: evidenceId,
+            chunkId,
             source: "knowledge",
             type: isFullDocumentRequest ? "full_document" : "document_chunk",
             relevance: result.relevance,
@@ -162,6 +197,7 @@ export async function retrievalNode(state: typeof AgentState.State) {
   const structuredEvidenceChain = {
     evidences: evidenceChain.map((e) => ({
       id: e.id,
+      chunkId: e.chunkId,
       source: e.source,
       type: e.type,
       relevance: e.relevance,

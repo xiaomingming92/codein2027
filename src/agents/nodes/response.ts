@@ -9,8 +9,15 @@ import type {
   StructuredVerdict,
   DisplayContent,
 } from "@/agents/types"
+import {
+  resolveResponseStrategy,
+  type ResponseSectionType,
+  type ResponseStrategy,
+  type StrategyContext,
+} from "@/agents/response-strategy"
 import { NodeStreamController } from "@/agents/node-stream-controller"
 import { randomUUID } from "crypto"
+import type { Evidence, ThinkingLevel } from "@/types/evidence"
 
 export async function responseNode(state: typeof AgentState.State) {
   const { currentTask, verdictResult, messages, evidenceChain, pendingInteraction, explicitIntent } = state
@@ -20,10 +27,20 @@ export async function responseNode(state: typeof AgentState.State) {
   stream.nodeStarted()
   const traceId = stream.traceId || randomUUID()
   const intent = currentTask?.intent || explicitIntent || "chat"
+  const thinkingLevel: ThinkingLevel = currentTask?.thinkingLevel ?? "deep"
+  const hasNonPriorEvidence = calculateHasNonPriorEvidence(evidenceChain || [])
+  const strategyContext: StrategyContext = {
+    thinkingLevel,
+    intent,
+    activeExperts: [],
+    hasNonPriorEvidence,
+  }
+  const strategy = resolveResponseStrategy(strategyContext)
 
   const structuredEvidenceChain: StructuredEvidenceChain = {
     evidences: (evidenceChain || []).map((e) => ({
       id: e.id,
+      chunkId: e.chunkId,
       source: e.source,
       type: e.type,
       content: e.content,
@@ -81,97 +98,60 @@ export async function responseNode(state: typeof AgentState.State) {
       }
     : null
 
-  let responseContent: string
-  let displayContent: DisplayContent
-
   stream.responseStart()
 
-  if (verdictResult || pendingInteraction) {
-    const input: ResponseInput = {
-      query: typeof userMessage === "string" ? userMessage : JSON.stringify(userMessage),
-      intent,
-      verdictResult: verdictResult
-        ? {
-            type: (verdictResult.type || "PATH_SELECTION") as NonNullable<ResponseInput["verdictResult"]>["type"],
-            conclusion: {
-              content: verdictResult.conclusion.content,
-              actions: verdictResult.conclusion.actions,
-              risks: verdictResult.conclusion.risks.map((r) => ({
-                level: (["low", "medium", "high"].includes(r.level) ? r.level : "low") as "low" | "medium" | "high",
-                description: r.description,
-                probability: r.probability,
-                impact: r.impact,
-              })),
-            },
-            confidence: verdictResult.confidence,
-          }
-        : undefined,
-      interactionPoint: pendingInteraction || undefined,
-      retrievedDocuments: (evidenceChain || [])
-        .filter(e => e.source === "knowledge")
-        .map(e => ({
-          source: (e.metadata?.documentName as string) || e.source,
-          content: e.content,
-          relevance: e.relevance,
-          isFullDocumentRequest: (e.metadata?.isFullDocumentRequest as boolean) || false,
-        })),
-    }
-
-    const streamingPrompt = buildStreamingTextPrompt(input)
-
-    const llmStream = await getLLM().stream(streamingPrompt)
-    let rawContent = ""
-
-    for await (const chunk of llmStream) {
-      const token = typeof chunk.content === "string" ? chunk.content : ""
-      if (!token) continue
-      rawContent += token
-      stream.token(token)
-    }
-
-    displayContent = buildDisplayFromState(verdictResult, pendingInteraction, rawContent, structuredEvidenceChain)
-    responseContent = rawContent.trim()
-  } else if (currentTask?.query) {
-    const knowledgeDocs = (evidenceChain || [])
-      .filter(e => e.source === "knowledge")
-      .map(e => `---\n文档来源：${(e.metadata?.documentName as string) || e.source}\n${e.content}\n---`)
-      .join("\n\n")
-
-    const docInstruction = knowledgeDocs
-      ? `\n\n以下是检索到的相关文档内容：\n${knowledgeDocs}\n\n要求：回复必须基于上述文档内容，引用时标注来源，不要编造文档中没有的信息。`
-      : ""
-
-    const prompt = `
-用户问题：${userMessage}
-任务意图：${intent}
-${docInstruction}
-请生成一个友好的回复，不需要包含推理过程。
-`
-    const llmStream = await getLLM().stream(prompt)
-    responseContent = ""
-
-    for await (const chunk of llmStream) {
-      const token = typeof chunk.content === "string" ? chunk.content : ""
-      if (!token) continue
-      responseContent += token
-      stream.token(token)
-    }
-
-    displayContent = {
-      summary: responseContent,
-      sections: [
-        { type: "conclusion", title: "回复", content: responseContent, expandable: false, dataRef: "direct" },
-      ],
-    }
-  } else {
-    responseContent = "您好！我是团队协同智能体，有什么可以帮助您的？"
-    stream.token(responseContent)
-    displayContent = {
-      summary: responseContent,
-      sections: [],
-    }
+  const input: ResponseInput = {
+    query: typeof userMessage === "string" ? userMessage : JSON.stringify(userMessage),
+    intent,
+    verdictResult: verdictResult
+      ? {
+          type: (verdictResult.type || "PATH_SELECTION") as NonNullable<ResponseInput["verdictResult"]>["type"],
+          conclusion: {
+            content: verdictResult.conclusion.content,
+            actions: verdictResult.conclusion.actions,
+            risks: verdictResult.conclusion.risks.map((r) => ({
+              level: (["low", "medium", "high"].includes(r.level) ? r.level : "low") as "low" | "medium" | "high",
+              description: r.description,
+              probability: r.probability,
+              impact: r.impact,
+            })),
+          },
+          confidence: verdictResult.confidence,
+        }
+      : undefined,
+    interactionPoint: pendingInteraction || undefined,
+    retrievedDocuments: (evidenceChain || [])
+      .filter((e) => e.source === "knowledge")
+      .map((e) => ({
+        source: (e.metadata?.documentName as string) || e.source,
+        content: e.content,
+        relevance: e.relevance,
+        isFullDocumentRequest: (e.metadata?.isFullDocumentRequest as boolean) || false,
+      })),
   }
 
+  const streamingPrompt = buildStreamingTextPrompt(input, strategy)
+  const llmStream = await getLLM().stream(streamingPrompt)
+  let responseContent = ""
+
+  for await (const chunk of llmStream) {
+    const token = typeof chunk.content === "string" ? chunk.content : ""
+    if (!token) continue
+    responseContent += token
+    stream.token(token)
+  }
+
+  const displayContent = buildDisplayFromState({
+    strategy,
+    structuredVerdict,
+    structuredReasoningPath,
+    pendingInteraction,
+    streamedText: responseContent,
+    evidenceChain: structuredEvidenceChain,
+    hasNonPriorEvidence,
+  })
+
+  responseContent = responseContent.trim()
   stream.responseEnd(responseContent)
 
   const structuredResponse: StructuredAgentResponse = {
@@ -201,6 +181,9 @@ ${docInstruction}
     hasVerdict: !!verdictResult,
     hasInteractionPoint: !!pendingInteraction,
     hasStructuredResponse: true,
+    strategyId: strategy.id,
+    thinkingLevel,
+    hasNonPriorEvidence,
   })
 
   return {
@@ -215,7 +198,7 @@ ${docInstruction}
   }
 }
 
-function buildStreamingTextPrompt(input: ResponseInput): string {
+function buildStreamingTextPrompt(input: ResponseInput, strategy: ResponseStrategy): string {
   const parts: string[] = []
   parts.push(`用户问题：${input.query}`)
   parts.push(`意图类型：${input.intent}`)
@@ -256,67 +239,159 @@ ${parts.join("\n")}
 4. 如果有风险或关键决策点，用结构化方式明确提示
 5. 如果有需要用户决策的交互点，在回复末尾列出选项并引导用户选择
 6. 语气专业、协同导向，体现对农业智能体开发项目的统筹推进
+7. ${strategy.promptHint}
 `
 }
 
-function buildDisplayFromState(
-  verdictResult: typeof AgentState.State extends { verdictResult: infer T } ? T : never,
-  pendingInteraction: typeof AgentState.State extends { pendingInteraction: infer T } ? T : never,
-  streamedText: string,
+interface BuildDisplayFromStateParams {
+  strategy: ResponseStrategy
+  structuredVerdict: StructuredVerdict | null
+  structuredReasoningPath: StructuredReasoningPath
+  pendingInteraction: typeof AgentState.State extends { pendingInteraction: infer T } ? T : never
+  streamedText: string
   evidenceChain: StructuredEvidenceChain
-): DisplayContent {
-  const sections: DisplayContent["sections"] = []
+  hasNonPriorEvidence: boolean
+}
 
-  if (evidenceChain.evidences.length > 0) {
-    const summary = evidenceChain.evidences.map((e) => `[${e.source}] ${e.content.slice(0, 100)}`).join("\n")
-    sections.push({
-      type: "evidence",
-      title: "证据链",
-      content: summary,
-      expandable: true,
-      dataRef: "evidenceChain",
-    })
-  }
-
-  if (verdictResult) {
-    if (verdictResult.conclusion.actions.length > 0) {
-      sections.push({
-        type: "conclusion",
-        title: "建议行动",
-        content: verdictResult.conclusion.actions.join("\n"),
-        expandable: false,
-        dataRef: "actions",
-      })
-    }
-
-    if (verdictResult.conclusion.risks.length > 0) {
-      sections.push({
+function buildDisplayFromState(params: BuildDisplayFromStateParams): DisplayContent {
+  const {
+    strategy,
+    structuredVerdict,
+    structuredReasoningPath,
+    pendingInteraction,
+    streamedText,
+    evidenceChain,
+    hasNonPriorEvidence,
+  } = params
+  const builders: Record<ResponseSectionType, () => DisplayContent["sections"][number] | null> = {
+    conclusion: () => ({
+      type: "conclusion",
+      title: "回复",
+      content: streamedText.trim() || structuredVerdict?.conclusion.content || "已完成响应生成。",
+      expandable: false,
+      dataRef: "summary",
+    }),
+    evidence: () => {
+      if (evidenceChain.evidences.length === 0) return null
+      return {
+        type: "evidence",
+        title: "证据链",
+        content: evidenceChain.evidences.map((e) => `[${e.source}] ${e.content.slice(0, 100)}`).join("\n"),
+        expandable: true,
+        dataRef: "evidenceChain",
+      }
+    },
+    evidence_digest: () => {
+      const digestEvidences = evidenceChain.evidences.filter(isStructuredNonPriorEvidence)
+      if (!hasNonPriorEvidence || digestEvidences.length === 0) return null
+      return {
+        type: "evidence_digest",
+        title: "证据摘要",
+        content: digestEvidences
+          .map((e) => `[${e.source}/${e.type}] 相关度 ${(e.relevance * 100).toFixed(1)}%：${e.content.slice(0, 120)}`)
+          .join("\n"),
+        expandable: true,
+        dataRef: "evidenceDigest",
+      }
+    },
+    reasoning: () => {
+      if (structuredReasoningPath.steps.length === 0) return null
+      return {
+        type: "reasoning",
+        title: "推理路径",
+        content: structuredReasoningPath.steps.map((step) => `${step.step}. ${step.description}`).join("\n"),
+        expandable: true,
+        dataRef: "reasoningPath",
+      }
+    },
+    confidence: () => {
+      if (!structuredVerdict) return null
+      return {
+        type: "confidence",
+        title: "置信度",
+        content: `${structuredVerdict.confidence.finalConfidence}%`,
+        expandable: true,
+        dataRef: "confidence",
+      }
+    },
+    risk: () => {
+      if (!structuredVerdict || structuredVerdict.conclusion.risks.length === 0) return null
+      return {
         type: "risk",
         title: "风险提示",
-        content: verdictResult.conclusion.risks.map((r) => `[${r.level}] ${r.description}`).join("\n"),
+        content: structuredVerdict.conclusion.risks.map((r) => `[${r.level}] ${r.description}`).join("\n"),
         expandable: true,
         dataRef: "risks",
-      })
-    }
-
-    sections.push({
-      type: "confidence",
-      title: "置信度",
-      content: `${verdictResult.confidence.final_confidence}%`,
-      expandable: true,
-      dataRef: "confidence",
-    })
+      }
+    },
+    interaction: () => {
+      if (!pendingInteraction) return null
+      return {
+        type: "interaction",
+        title: "需要您的决策",
+        content: pendingInteraction.description,
+        expandable: false,
+        dataRef: "interactionPoint",
+      }
+    },
+    action_steps: () => {
+      if (!structuredVerdict || structuredVerdict.conclusion.actions.length === 0) return null
+      return {
+        type: "action_steps",
+        title: "行动步骤",
+        content: structuredVerdict.conclusion.actions.map((action, index) => `${index + 1}. ${action}`).join("\n"),
+        expandable: true,
+        dataRef: "actions",
+      }
+    },
+    timeline: () => null,
   }
 
-  if (pendingInteraction) {
-    sections.push({
-      type: "interaction",
-      title: "需要您的决策",
-      content: pendingInteraction.description,
-      expandable: false,
-      dataRef: "interactionPoint",
-    })
-  }
+  const sections = strategy.sections
+    .map((section) => builders[section]())
+    .filter((section): section is DisplayContent["sections"][number] => section !== null)
 
   return { summary: streamedText.trim(), sections }
+}
+
+function calculateHasNonPriorEvidence(evidences: Evidence[]): boolean {
+  return evidences.some(isNonPriorEvidence)
+}
+
+function isNonPriorEvidence(evidence: Evidence): boolean {
+  if (evidence.source === "knowledge_empty" || evidence.source === "project_context" || evidence.source === "keywords") {
+    return false
+  }
+
+  if (evidence.source === "knowledge" || evidence.source === "document") {
+    return Boolean(
+      evidence.chunkId ||
+      typeof evidence.metadata.documentName === "string" ||
+      typeof evidence.metadata.documentId === "string"
+    )
+  }
+
+  return evidence.source === "task" ||
+    evidence.source === "economic" ||
+    evidence.source === "sensor" ||
+    evidence.source === "team_input"
+}
+
+function isStructuredNonPriorEvidence(evidence: StructuredEvidenceChain["evidences"][number]): boolean {
+  if (evidence.source === "knowledge_empty" || evidence.source === "project_context" || evidence.source === "keywords") {
+    return false
+  }
+
+  if (evidence.source === "knowledge" || evidence.source === "document") {
+    return Boolean(
+      evidence.chunkId ||
+      typeof evidence.metadata.documentName === "string" ||
+      typeof evidence.metadata.documentId === "string"
+    )
+  }
+
+  return evidence.source === "task" ||
+    evidence.source === "economic" ||
+    evidence.source === "sensor" ||
+    evidence.source === "team_input"
 }
