@@ -1,5 +1,21 @@
 # Tasks: 领域集成 — 管线消费 + 报告服务
 
+## Preconditions
+
+- [ ] 已执行 `session-init` SKILL
+- [ ] 已执行 `add-paradigm` SKILL（Step 0 文档先行）
+- [ ] 上游第1-3轮 ADD-7 审计记录存在（`query_audit_logs({ sinceMinutes: 2880, keyword: "ANALYSIS_CONTEXT_CREATED" })`）
+- [ ] `npx tsc --noEmit` 在上游完成后通过
+
+## Forbidden
+
+- 禁止修改 Prisma Schema（`prisma/schema.prisma`）
+- 禁止修改前端组件（React/Vue 组件文件）
+- 禁止覆盖或重构已有 stream-bus / SSE 事件总线逻辑
+- 禁止简化代码实现，一切以代码高质量为衡量标准
+- 禁止硬套 Mongo 风格 filter 到 ChromaDB（先读现有 ChromaDB 查询封装 API 签名）
+- 禁止报告 API 凭空假设 ChatMessage 数据结构（先读现有消息持久化结构）
+
 - [ ] Task 1: 改造 retrieval 节点支持专家过滤
   - [ ] 修改 `src/agents/nodes/retrieval.ts`
   - [ ] 当 analysisContext.activeExperts 非空时：收集各专家的 evidenceFilter 并合并
@@ -51,3 +67,30 @@
 - Task 3 依赖 Task 2（需要 outputSections 合并结果）
 - Task 4-5 可并行于 Task 1-3
 - Task 6 可并行于所有 Task（仅安装依赖）
+
+## Verification
+
+- [ ] `npx tsc --noEmit`
+- [ ] `npm run lint`（如项目已配置）
+- 当前 spec `checklist.md` 全部通过
+- 当前对话 ADD-7 `record_dev_operation` 已逐文件记录
+- `npm install` 成功（无冲突）
+
+## 对话启动（将此段粘贴给新的 LLM 对话）
+
+你在执行 farm-agent 改进的 **第4轮**（领域集成 — 管线消费 + 报告服务）。上游第1-3轮已完成类型基础、裁决层、分析专家注册表、AnalysisContext。
+
+**启动步骤（按顺序）：**
+1. 执行 `session-init` SKILL → `query_audit_logs({ sinceMinutes: 2880 })` 确认第1-3轮完成
+2. 执行 `add-paradigm` SKILL
+3. 先读现有 ChromaDB 查询封装 API、ChatMessage 持久化结构
+4. 阅读 `specs/co-agent-pipeline-integration/spec.md`
+5. 按本文档 tasks.md 顺序执行。建议先保证 md/xlsx 可用，再实现 pdf/docx
+
+**文件清单（2新建+4修改）：**
+`retrieval.ts`(改) / `reasoning.ts`(改) / `response.ts`(改) / `report-generator.ts`(新) / `report/route.ts`(新) / `package.json`(改)
+
+**⚠️ retrieval.ts 第1轮已改过，reasoning.ts/response.ts 首次修改或第2轮已改过——做增量编辑。**
+**⚠️ ChromaDB filter 不能硬套 Mongo 风格，先读现有封装。**
+
+**关键提醒：** 对话已开 3/5，完成后立即 record_dev_operation。

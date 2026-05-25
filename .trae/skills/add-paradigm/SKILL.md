@@ -1,6 +1,6 @@
 ---
 name: "add-paradigm"
-description: "Audit-Driven Development paradigm workflow. Invoke when starting any new feature development, bug fix, or system modification. Guides through 8 steps from documentation-first to convergence verification."
+description: "Audit-Driven Development paradigm workflow. Invoke when starting any new feature development, bug fix, or system modification. 9 phases (Step 0-8), each containing multiple sub-steps. Do NOT skip sub-steps — each numbered item under a phase must be executed."
 ---
 
 # 可审计开发范式（ADD）工作流
@@ -24,9 +24,13 @@ description: "Audit-Driven Development paradigm workflow. Invoke when starting a
 
 ---
 
-## Step 0：项目文档先行（Documentation First）
+## Step 0：文档先行（Documentation First）
 
-**在编写任何代码之前，必须先完成本步骤。项目文档是代码变更的源头和依据，文档必须先于代码更新。**
+**在编写任何代码之前，必须先完成本步骤。文档是代码变更的源头和依据，必须先于代码更新。**
+
+Step 0 覆盖两类文档：
+- **项目文档**（0.1–0.6）：`docs/` 下的需求、架构、规范文档
+- **协作文档**（0.5）：`.trae/specs/` 和 `.trae/documents/` 下的 spec/review/handoff 文件
 
 ### 0.1 分析变更影响范围
 
@@ -82,6 +86,241 @@ find_related_docs({ query: "功能关键词" })
 - [ ] 已阅读并理解所有相关项目文档
 - [ ] 项目文档已更新（或已说明无需更新）
 - [ ] 文档合约一致性已确认
+- [ ] 协作文档（spec/review/handoff）已按 Step 0.5 规范创建
+
+### 0.6 验收后架构文档复核（在 Step 8 收敛判断后执行）
+
+> **注意**：本子步骤在 Step 8 收敛判断通过后执行，不在代码实现之前执行。
+
+代码实现完成并通过所有验证后，重新回到架构文档做最终校准：
+
+1. **重新阅读** Step 0 中已更新的架构文档章节
+2. **逐项对照**：文档中的接口/合约/数据流与实际实现是否一致
+3. **标记偏差点**：如有不一致，输出偏差报告（差异位置 + 文档描述 vs 实际实现）
+4. **通知开发者决策**：AI **禁止自动修改**代码或文档来消除偏差。差异信息提交给开发者，由开发者决定是修正代码还是修正文档
+5. **审计记录**：偏差标记和开发者决策结果调用 `record_dev_operation` 记录（`targetType: "DOC"`，`action: "DOC_POST_IMPLEMENTATION_REVIEW"`）
+
+### Step 0.6 产出检查
+
+- [ ] 架构文档已重新阅读
+- [ ] 文档与实现的逐项对照已完成
+- [ ] 如有偏差，偏差报告已生成并提交开发者
+- [ ] 开发者决策已记录（修正代码 / 修正文档 / 接受差异）
+
+---
+
+## Step 0.5：协作文档规范（命名、格式与交互规则）
+
+> **目标**：确保 `.trae/specs/`、`.trae/documents/` 下的 spec/review/handoff 文件遵循统一的命名和格式约定，使后续 AI Session 能快速定位和恢复上下文。
+
+**在编写任何代码之前，必须先确认本步骤中的文件结构已就位。**
+
+### 0.5.1 文件命名规范
+
+| 文档类型 | 命名规则 | 示例 | 存放位置 |
+|---------|---------|------|---------|
+| 开发任务（specs 三元组） | `项目名-任务名/` | `farm-agent-response-strategy/` | `.trae/specs/` |
+| review 文件 | `项目名-任务名-round{N}-review.md` | `farm-agent-response-strategy-round2-review.md` | `.trae/documents/` |
+| handoff 文件 | `项目名-需求名-handoff.md` | `farm-agent-co-agent-handoff.md` | `.trae/documents/` |
+
+**命名规则说明**：
+
+- **项目名**：当前仓库的项目标识，本项目为 `farm-agent`
+- **任务名**：用小写中划线描述该原子事务的核心功能，如 `response-strategy`、`expert-registry`、`semantic-cache`
+- **需求名**：如果某个需求需要拆分成多个任务（多轮），handoff 文件用需求名命名（如 `co-agent`），每个任务作为 handoff 中的独立章节（如 `<第2轮>`）
+- **如果需求与任务是一对一**：handoff 可以省略轮次编号，直接描述任务内容
+- **handoff 只维护一个文件**：一个需求对应一个 handoff 文件，不按轮次拆分
+
+### 0.5.2 specs 三元组结构
+
+每个 spec 目录 MUST 包含三个文件，形成"需求→执行→验收"闭环：
+
+```
+.trae/specs/{任务名}/
+  ├── spec.md       # 需求定义：Why / What Changes / Impact / Boundaries / Requirements
+  ├── tasks.md      # 执行拆分：Preconditions / Forbidden / Tasks / Dependencies / Verification
+  └── checklist.md  # 验收清单：编号验证项，每条可追溯到 tasks.md 的 Task
+```
+
+**spec.md 格式规范**（MUST 按以下章节顺序）：
+
+```markdown
+# {功能名称} Spec
+
+## Why
+一句话说明为什么要做这个改动。
+
+## What Changes
+列出本次会修改/新建哪些文件和内容。
+
+## Impact
+- Affected specs: 受影响的已有 spec（无则写无）
+- Affected code: 受影响的代码文件列表
+- 父 Plan: 链接到父计划文档
+- 依赖: 上游轮次 / 模块
+- 后续依赖: 下游轮次 / 模块
+
+## Boundaries
+本次只允许实现...，本次禁止实现...
+
+## Requirements
+### Requirement: {需求名}
+系统 SHALL...（含 Scenario: WHEN...THEN... 格式）
+```
+
+**tasks.md 格式规范**（MUST 按以下章节顺序）：
+
+```markdown
+# Tasks: {功能名称}
+
+## Preconditions
+- [ ] 上游依赖检查项
+
+## Forbidden
+- 禁止修改...
+- 禁止引入...
+
+- [ ] Task 1: {任务名}
+  - [ ] 子步骤
+  - [ ] 验证标准
+
+- [ ] Task N: ...
+
+## Task Dependencies
+- Task 2 依赖 Task 1
+
+## Verification
+- [ ] npx tsc --noEmit
+- [ ] npm run lint
+- [ ] npm run test
+```
+
+**checklist.md 格式规范**：
+
+- 每一项是一个独立的验收条件，可追溯到 tasks.md 的具体 Task
+- 勾选状态 MUST 可验证，禁止空勾选或推测通过
+- 未执行的验收项 MUST 显式标注"未验证"并保留
+
+### 0.5.3 review 文件格式
+
+review 文件用于在代码执行前审查 spec/tasks/checklist/handoff 的一致性和完整性。
+
+**MUST 包含以下章节**（按顺序）：
+
+```markdown
+# 项目名-任务名-round{N}-review
+
+## Review 元信息
+- Review 对象: 列出被审查的文件路径
+- Review 范围: 一句话描述
+- Review 时间: ISO 日期
+- 结论级别: 可接受 / 需修正后执行 / 方向错误需重做
+
+## 1. 总体结论
+一段话概述：方向是否正确、是否具备执行基础、存在哪些需修正的问题。
+
+## 2. 正向评价
+逐项肯定正确的设计决策和架构约束。
+
+## 3. 问题清单
+编号列表，每条含：严重程度 + 问题描述 + 修正建议。
+
+## 4. 影响评估
+修正前后对比，说明越界风险和协议破坏面。
+
+## 5. 建议修正优先级
+高优先级 / 中优先级 / 低优先级 分级。
+
+## 6. 最终建议
+推荐的执行顺序和完成判定标准。
+```
+
+### 0.5.4 handoff 文件格式
+
+handoff 文件的每个轮次章节 MUST 包含以下小节：
+
+```markdown
+## <第N轮> {轮次名称}
+
+### 你当前的位置
+你是第 N 轮。上游第 X 轮完成...，本轮只做...。
+
+### 上游已完成
+列出上游轮次的交付物。
+
+### 你的 spec 文件
+链接到对应的 specs 三元组目录。
+
+### 你要改的文件
+| 文件 | 操作 | 改什么 |
+
+### 核心设计
+关键架构约束、接口定义、策略注册表等。
+
+### 关键契约细化
+逐条列出不可妥协的契约约束。
+
+### 高风险误区
+列出禁止跨越的边界和常见错误方向。
+
+### 恢复上下文审计查询（新 AI Session 首次启动必读）
+- 第一步：按 targetId 搜索代码文件改动
+- 第二步：搜索文档变更记录
+- 第三步：按行动词搜索快速定位
+- 每条 query_audit_logs 调用 MUST 附带返回条数和 beforeState/afterState 说明
+- 必须给出 "一键恢复" 的 keyword 搜索方式
+
+### 验证标准
+分为 "已完成验证" 和 "未执行的端到端验证" 两部分，未执行项不得勾选。
+
+### 完成后记录 ADD-7 审计
+列出本轮的 ADD-7 action 清单（含文件路径）。
+```
+
+### 0.5.5 三种文档的交互规则
+
+```
+                    ┌─────────────────┐
+                    │  spec + tasks +  │
+                    │  checklist       │ ←── 被 review 引用
+                    │  (三元组)         │
+                    └────────┬────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+              ▼              ▼              ▼
+        review 文件     handoff 章节    代码实现
+        (执行前审查)    (入口索引)      (消费 spec)
+              │              │              │
+              └──────────────┼──────────────┘
+                             │
+                             ▼
+                    checklist 逐项勾选
+                             │
+                             ▼
+                    handoff 验证标准更新
+                             │
+                             ▼
+                    ADD-7 审计落库 + query 回查
+```
+
+**关键规则**：
+
+1. **handoff 是入口索引**：指向 specs 三元组，不重复 spec 的所有细节
+2. **handoff 摘要与 spec 冲突时，以 spec 为准**：不允许按 handoff 的简写自行简化实现
+3. **review 覆盖 handoff + specs 全部**：不是只审 spec 不审 handoff
+4. **代码完成后 checklist ← 逐项勾选 → handoff 验证标准**：两者必须同步更新
+5. **每轮完成后 handoff 对应章节 MUST 更新**：文件清单、合同细节、ADD-7 审计查询语句
+6. **ADD-7 不只写入 record_dev_operation**：还必须用 query_audit_logs 按 action/targetId/keyword 回查确认落库
+
+### Step 0.5 产出检查
+
+- [ ] spec/tasks/checklist 三元组已存在于正确的命名目录
+- [ ] review 文件已按命名规范和格式约定创建
+- [ ] handoff 对应轮次章节已按模板撰写
+- [ ] 文件命名符合 `项目名-任务名` 规范
+- [ ] 三种文档间的引用关系已确认（handoff→specs，review→handoff+specs）
+- [ ] handoff 的恢复上下文审计查询章节已含 query_audit_logs 调用和返回说明
 
 ---
 
@@ -426,11 +665,11 @@ grep -c "结束" logs/{feature-dir}/{feature}.log
 
 ---
 
-## Step 4.5：AI 自动合规检查
+## Step 5：AI 自动合规检查
 
 **AI 助手作为审计数据的第一消费者，自动检查 ADD 原则的合规性。**
 
-### 4.5.1 读取审计日志
+### 5.1 读取审计日志
 
 调用审计日志器的 `readRecentLogs()` 函数获取最近的审计记录：
 
@@ -440,7 +679,7 @@ import { read{Feature}Logs } from "@/lib/{feature}-logger"
 const logs = await read{Feature}Logs(200)
 ```
 
-### 4.5.2 执行合规检查
+### 5.2 执行合规检查
 
 AI 助手必须逐项检查以下合规条件，并向程序员报告结果：
 
@@ -475,7 +714,7 @@ AI 助手必须逐项检查以下合规条件，并向程序员报告结果：
 - 查询数据库确认审计字段有数据
 - 审计数据结构符合 Step 1 定义的 AuditData 类型
 
-### 4.5.3 生成合规报告
+### 5.3 生成合规报告
 
 AI 助手必须生成以下格式的合规报告：
 
@@ -503,13 +742,13 @@ ADD 合规检查报告
      - 修复建议: 检查 saveChainTrace 方法是否抛出未捕获异常
 ```
 
-### 4.5.4 AI 根据合规报告调整行为
+### 5.4 AI 根据合规报告调整行为
 
 - 如果有不合规项，AI 自动生成修复代码并提示程序员
 - 如果合规报告显示功能收敛，AI 确认开发完成
 - 如果发现审计数据中的异常模式（如某阶段从未触发），AI 主动提示
 
-### Step 4.5 产出检查
+### Step 5 产出检查
 
 - [ ] AI 已读取审计日志（调用 readRecentLogs）
 - [ ] 阶段标记对称性已检查
@@ -520,11 +759,11 @@ ADD 合规检查报告
 
 ---
 
-## Step 5：从审计数据定位问题
+## Step 6：从审计数据定位问题
 
 **如果 Step 4 发现异常，从审计数据中定位根因。**
 
-### 5.1 分析日志文件
+### 6.1 分析日志文件
 
 ```bash
 # 查看最近的审计日志
@@ -537,7 +776,7 @@ grep "{PHASE_ONE}_CHUNK" logs/{feature-dir}/{feature}.log
 grep "FAIL\|ERROR" logs/{feature-dir}/{feature}.log
 ```
 
-### 5.2 分析数据库审计字段
+### 6.2 分析数据库审计字段
 
 ```sql
 SELECT id, metadata->>'last{Feature}Audit'
@@ -546,7 +785,7 @@ ORDER BY "updatedAt" DESC
 LIMIT 10;
 ```
 
-### 5.3 从数据推断根因
+### 6.3 从数据推断根因
 
 审计数据的优势：
 - 只有 Start 没有 End = 该阶段异常中断
@@ -556,17 +795,17 @@ LIMIT 10;
 
 ---
 
-## Step 6：修复并验证
+## Step 7：修复并验证
 
-### 6.1 修复问题
+### 7.1 修复问题
 
-根据 Step 5 定位的根因进行修复。
+根据 Step 6 定位的根因进行修复。
 
-### 6.2 重新运行验证
+### 7.2 重新运行验证
 
 修复后重新执行 Step 4 的验证流程。
 
-### 6.3 审计数据验证修复效果
+### 7.3 审计数据验证修复效果
 
 对比修复前后的审计数据，确认：
 - 异常消失
@@ -575,7 +814,7 @@ LIMIT 10;
 
 ---
 
-## Step 7：收敛判断
+## Step 8：收敛判断
 
 ### 收敛条件
 
@@ -587,10 +826,16 @@ LIMIT 10;
 - [ ] 数据库审计字段有正确的结构化数据
 - [ ] TypeScript 编译通过
 - [ ] 三通道输出格式统一
+- [ ] **checklist.md 全部项已勾选，且有可验证证据**（不得空勾选、不得"推测通过"）
+- [ ] **tasks.md 全部任务已完成，且每个任务有对应的 checklist 验证记录**
+
+### 收敛后：回到 Step 0.6 做架构文档复核
+
+收敛条件全部满足后，**必须回到 Step 0.6** 执行验收后架构文档复核。这是 ADD-0.1 文档先行流程的闭合步骤——确保文档与最终实现一致，而非只做了"代码改之前的文档更新"。
 
 ### 未收敛
 
-如果仍有异常，回到 Step 5 继续定位和修复。
+如果仍有异常，回到 Step 6 继续定位和修复。
 
 ---
 

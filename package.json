@@ -41,6 +41,7 @@
     "@langchain/langgraph-checkpoint": "^1.0.2",
     "@langchain/ollama": "^1.2.7",
     "@langchain/openai": "^1.4.7",
+    "@langchain/textsplitters": "^1.0.1",
     "@prisma/client": "^6.19.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.11",

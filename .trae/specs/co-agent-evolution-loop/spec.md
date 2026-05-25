@@ -25,19 +25,33 @@
 ### Requirement: 回路一 — 语义缓存 TTL 自主学习
 
 系统 SHALL 在语义缓存过期后重新运行 LLM，对比新旧置信度：
-- 相同（±5%）→ TTL 上调 20%（浪费了一次调用，说明 TTL 太短）
-- 不同 → TTL 不变或下调 20%
+- 相同（±5%）→ TTL 上调 20%（不超过 `maxTtl`，默认值为 `defaultTtl * 10`）
+- 不同 → TTL 不变或下调 20%（不低于 `minTtl`，默认值为 60 秒）
 
 学习数据 SHALL 持久化到 `logs/cache-ttl-stats.json`。
 
+缓存键 SHALL 为四元组：`normalizedQuery + intent + sorted(activeExperts) + kbGeneration`，确保跨专家不误命中、知识库变更后自动淘汰。
+
+TTL 自适应 SHALL 遵守硬上下限：`minTtl ≤ adaptedTtl ≤ maxTtl`，防止无边界漂移。
+
 #### Scenario: TTL 上调
-- **WHEN** 同一场景（相同意图+相同 expert 组合）缓存过期 3 次
+- **WHEN** 同一场景（相同意图+相同 activeExperts+相同 kbGeneration）缓存过期 3 次
 - **AND** 重新运行 LLM 后结论与新缓存写入时相比置信度差异 ≤ 5%
-- **THEN** 该场景的 CACHE_TTL 上调 20%
+- **THEN** 该场景的 CACHE_TTL 上调 20%（不超过 maxTtl）
 
 #### Scenario: TTL 不误调
 - **WHEN** 缓存过期后重新运行 LLM 结论显著不同
 - **THEN** TTL 不变或下调（数据确实变了，缓存过期合理）
+
+#### Scenario: TTL 不超过上限
+- **WHEN** TTL 已经达到 maxTtl
+- **AND** 再次触发上调条件
+- **THEN** TTL 保持不变（不超越上限）
+
+#### Scenario: TTL 不低于下限
+- **WHEN** TTL 已经达到 minTtl
+- **AND** 再次触发下调条件
+- **THEN** TTL 保持不变（不低于下限）
 
 ### Requirement: 回路二 — 下载格式偏好学习
 

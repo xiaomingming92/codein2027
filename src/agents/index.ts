@@ -11,10 +11,12 @@ import {
 import { routeByIntent, routeByInteractionPoint, routeByVerdictType } from "./edges"
 import { agentTools } from "./tools"
 import { setAgentTools } from "@/lib/llm/index"
-import { agentAudit, agentAuditNodeStart, agentAuditNodeEnd, agentAuditNodeError } from "@/lib/agent-audit-logger"
+import { agentAuditNodeStart, agentAuditNodeEnd, agentAuditNodeError } from "@/lib/agent-audit-logger"
 import { ChainTracer } from "@/lib/agent-chain-tracer"
 import type { ChainTrace } from "@/lib/agent-chain-tracer"
+import type { AnalysisContext } from "@/services/analysis-context"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 
 setAgentTools(agentTools as Parameters<typeof setAgentTools>[0])
 
@@ -58,7 +60,7 @@ async function auditNodeEvent(
         targetType: "AGENT_NODE",
         targetId: traceId,
         traceId,
-        afterState: detail,
+        afterState: detail as Prisma.InputJsonValue,
         reason: `${action} traceId=${traceId}`,
       },
     })
@@ -89,6 +91,7 @@ const workflow = new StateGraph(AgentState)
   .addEdge("__start__", "intention")
   .addConditionalEdges("intention", routeByIntent, [
     "retrieval",
+    "response",
   ])
   .addEdge("retrieval", "reasoning")
   .addEdge("reasoning", "interactionPointDetection")
@@ -217,6 +220,7 @@ export async function streamAgent(
     project?: unknown
     explicitIntent?: string | null
     conversationContext?: Record<string, unknown>
+    analysisContext?: AnalysisContext | null
   },
   config?: {
     configurable?: {
@@ -230,6 +234,7 @@ export async function streamAgent(
     project: input.project || null,
     explicitIntent: input.explicitIntent || null,
     conversationContext: input.conversationContext || {},
+    analysisContext: input.analysisContext ?? null,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

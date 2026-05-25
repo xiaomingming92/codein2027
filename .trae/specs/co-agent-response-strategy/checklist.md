@@ -1,21 +1,41 @@
 # Checklist: 裁决层 — ResponseStrategy 集中管理
 
-- [ ] `src/agents/response-strategy.ts` 新建完成，含 StrategyDescriptor 接口 + StrategyContext 接口 + registry 数组 + register() + resolveResponseStrategy()
-- [ ] 注册表含 8 个 descriptor + 1 个 catch-all 兜底（共 9 个策略）
-- [ ] 每个 descriptor 具有 id/matches/priority/apply 四个字段
-- [ ] matches 是自包含纯函数，不依赖外部状态（除 ctx 参数外）
-- [ ] priority: fast 策略=10, deep 精确策略=20, catch-all=1
-- [ ] resolveResponseStrategy 流程：filter(matches) → sort(priority desc) → pick first → 修饰器管道
-- [ ] 修饰器1：activeExperts 的 outputSections 合并
-- [ ] 修饰器2：evidence_digest 运行时降级（无非先验证据时关闭）
-- [ ] response.ts 构建 StrategyContext 并调用 resolveResponseStrategy
-- [ ] response.ts 不再使用硬编码三段分支
-- [ ] buildStreamingTextPrompt 追加 promptHint
-- [ ] buildDisplayFromState 按 strategy.sections 过滤
-- [ ] `DisplayContent.sections` 联合类型新增 `"evidence_digest"` / `"action_steps"` / `"timeline"`
-- [ ] `npx tsc --noEmit` 零类型错误
+- [x] `src/agents/response-strategy.ts` 新建完成，含 StrategyDescriptor 接口 + StrategyContext 接口 + registry 数组 + register() + resolveResponseStrategy()
+- [x] 注册表含 8 个 descriptor：fast:chat + deep:analysis/planning/decision/question/creation/modification + deep:fallback
+- [x] deep:fallback 即 catch-all 兜底策略，不存在额外第 9 个 catch-all descriptor
+- [x] 每个 descriptor 具有 id/matches/priority/apply 四个字段
+- [x] matches 是自包含纯函数，不依赖外部状态（除 ctx 参数外）
+- [x] priority: fast 策略=10, deep 精确策略=20, deep:fallback=1
+- [x] resolveResponseStrategy 流程：filter(matches) → sort(priority desc) → pick first → 装饰器管道
+- [x] 装饰器1：activeExperts 的 outputSections 合并且去重
+- [x] activeExperts 仅作为 StrategyContext 可选预留输入，不引入 ExpertRegistry / AnalysisContext / activeExperts 持久化
+- [x] response.ts 构造 StrategyContext 时传 `activeExperts: []`，不从 conversationContext / ChatThread.metadata / AnalysisContext 推断 activeExperts
+- [x] 装饰器2：hasNonPriorEvidence=false 时关闭 showEvidenceDigest，并从 sections 移除 evidence_digest
+- [x] hasNonPriorEvidence 判定规则符合 spec.md：knowledge/document 需真实 chunkId 或 document metadata；task/economic/sensor/team_input 算运行时业务数据；knowledge_empty/project_context/keywords 不算
+- [x] response.ts 构建 StrategyContext 并调用 resolveResponseStrategy
+- [x] response.ts 不再使用硬编码三段分支承担策略决策职责
+- [x] buildStreamingTextPrompt 追加 promptHint
+- [x] maxTokens 作为策略元数据和 promptHint 约束存在；未为此重构 LLM wrapper
+- [x] buildDisplayFromState 按 strategy.sections 过滤
+- [x] fast/chat 或 greeting 场景也经过 resolveResponseStrategy，sections 仅含 conclusion，不返回空 sections
+- [x] `DisplayContent.sections` 联合类型在 `src/agents/types/structured-output.ts` 新增 `"evidence_digest"` / `"action_steps"` / `"timeline"`
+- [x] 未新建 `src/agents/types.ts`
+- [x] 未新增 `"risks"` section type，风险 section 继续使用 `"risk"`
+- [x] timeline section 仅在已有结构化时间数据时生成；无时间数据时不生成且不编造
+- [x] `src/agents/response-strategy.test.ts` 新建完成
+- [x] 单测覆盖 fast chat → fast:chat
+- [x] 单测覆盖 deep analysis → deep:analysis
+- [x] 单测覆盖 deep planning → deep:planning
+- [x] 单测覆盖 deep question → deep:question
+- [x] 单测覆盖 deep unknown → deep:fallback
+- [x] 单测覆盖 priority desc 生效
+- [x] 单测覆盖 evidence_digest 无非先验证据时降级
+- [x] 单测覆盖 activeExperts outputSections 合并且去重
+- [x] 新增单测自身类型干净，可单独运行/通过；若全局 test suite 有历史问题，已区分本轮新增测试与历史失败
+- [x] `npx tsc --noEmit` 中本轮相关类型零错误
+- [x] `npm run lint` 中本轮相关 lint 零错误
 - [ ] fast 回复 ≤ 2 句话，sections 仅含 conclusion
-- [ ] analysis 回复 sections 含 conclusion + evidence + reasoning + confidence + risks
-- [ ] planning 回复 sections 含 action_steps + timeline，不含 evidence_digest
+- [ ] analysis 回复 sections 含 conclusion + evidence + reasoning + confidence + risk
+- [ ] planning 回复 sections 含 action_steps + timeline（仅当有结构化时间数据），不含 evidence_digest
 - [ ] question 回复 sections 含 evidence_digest，不含 reasoning
 - [ ] catch-all 未定义意图 → 回退到 deep:fallback

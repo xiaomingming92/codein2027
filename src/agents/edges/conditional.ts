@@ -4,8 +4,9 @@ import { getActiveTracer } from "@/agents"
 
 export function routeByIntent(state: typeof AgentState.State) {
   const intent = state.currentTask?.intent || state.explicitIntent
-  const target = "retrieval"
-  const reason = intent ? `intent=${intent} (所有意图都走RAG)` : "无意图, 默认走检索"
+  const thinkingLevel = state.currentTask?.thinkingLevel ?? "deep"
+  const target = thinkingLevel === "fast" ? "response" : "retrieval"
+  const reason = `thinkingLevel=${thinkingLevel}, intent=${intent || "unknown"}`
 
   const traceId = state.conversationContext?.traceId as string
   if (traceId) {

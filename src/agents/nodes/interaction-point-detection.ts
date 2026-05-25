@@ -30,8 +30,12 @@ export async function interactionPointDetectionNode(state: typeof AgentState.Sta
     query: currentTask?.query || "",
     evidenceChain: (evidenceChain || []).map((e) => ({
       id: e.id,
+      chunkId: e.chunkId,
       source: e.source,
-      content: e.content.substring(0, 200),
+      reliability: e.reliability,
+      relevance: e.relevance,
+      docName: typeof e.metadata.documentName === "string" ? e.metadata.documentName : undefined,
+      contentExcerpt: e.content.slice(0, 200),
     })),
     reasoningResult: {
       conclusion: verdictResult.conclusion.content,

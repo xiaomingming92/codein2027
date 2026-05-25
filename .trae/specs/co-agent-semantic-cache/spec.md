@@ -22,11 +22,12 @@
 
 ### Requirement: 缓存键构建
 
-缓存键 SHALL 由三元组组成：
-- `queryHash`：用户消息内容的 SHA256 前 16 位
+缓存键 SHALL 由四元组组成：
+- `normalizedQuery`：用户消息内容的标准化哈希（去标点+去空格+小写化后的 SHA256 前 16 位）
 - `intentHash`：意图类型的 hash 前 8 位
-- `contextHash`：projectId + threadId 的 hash 前 8 位
-- `compositeKey`：`${queryHash}:${intentHash}:${contextHash}`
+- `activeExperts`：排序后的激活专家 ID 列表的 hash 前 8 位（跨专家不误命中）
+- `kbGeneration`：当前全局 kbGeneration 版本号（知识库变更后自动淘汰）
+- `compositeKey`：`${normalizedQuery}:${intentHash}:${activeExperts}:${kbGeneration}`
 
 ### Requirement: 三层淘汰策略
 

@@ -42,9 +42,12 @@ export async function reasoningNode(state: typeof AgentState.State) {
     query: currentTask.query,
     evidenceList: evidenceChain.map((e) => ({
       id: e.id,
+      chunkId: e.chunkId,
       source: e.source,
-      content: e.content,
       reliability: e.reliability,
+      relevance: e.relevance,
+      docName: typeof e.metadata.documentName === "string" ? e.metadata.documentName : undefined,
+      contentExcerpt: e.content.slice(0, 500),
     })),
   }
 

@@ -1,6 +1,5 @@
 import type { Evidence, EvidenceChain, ConfidenceBreakdown, Conclusion, RiskItem } from "@/types/evidence"
 import { calculateFinalConfidence, createEmptyEvidenceChain } from "@/types/evidence"
-import type { VerdictType } from "@/types/verdict"
 
 interface ReasoningEngineOptions {
   baseConfidence?: number
@@ -250,6 +249,11 @@ export class EvidenceChainReasoningEngine {
   private adjustReliability(reliability: number, source: Evidence["source"]): number {
     const sourceReliability: Record<Evidence["source"], number> = {
       document: 0.8,
+      knowledge: 0.85,
+      knowledge_empty: 0,
+      project_context: 0.9,
+      keywords: 0.7,
+      multimodal: 0.6,
       task: 0.9,
       economic: 0.7,
       history: 0.85,
