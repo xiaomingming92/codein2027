@@ -5,9 +5,9 @@
 ### 全球首个哲学理论和意图驱动项目 Human Intent Operating Systemed Project · 长周期AI自主开发工程化实现
 
 [![GitHub Stars](https://img.shields.io/github/stars/xiaomingming92/codein2027)](https://github.com/xiaomingming92/codein2027)
-[![License](https://img.shields.io/badge/License-MIT%2BADD-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-pink)](./LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/xiaomingming92/codein2027/commits/main)](https://github.com/xiaomingming92/codein2027)
-[![Runtime](https://img.shields.io/badge/Runtime-Docker%2FPodman%2FNode.js-green)]()
+[![Runtime](https://img.shields.io/badge/Runtime-Podman%2FNode.js-green)]()
 
 ---
 ### 📢 首创官方声明
