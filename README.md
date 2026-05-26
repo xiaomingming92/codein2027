@@ -2,7 +2,7 @@
 
 # codein2027
 ## ADD 审计驱动开发范式 | Audit-Driven Development
-### 全球首个哲学理论和意图驱动项目 Human Intent Operating Systemed Project · 长周期AI自主开发工程化实现
+### 这是哲学理论和意图驱动项目 Human Intent Operating Systemed Project · 长周期AI自主开发工程化实现
 
 [![GitHub Stars](https://img.shields.io/github/stars/xiaomingming92/codein2027)](https://github.com/xiaomingming92/codein2027)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-6366f1)](./LICENSE.md)
