@@ -292,6 +292,56 @@ LangGraph 节点实现时：
 
 ---
 
+## ADD-8：目录路径与文件命名约定
+
+ADD 开发流程产生多种产物（方案、拆分、交接、评审、spec），必须按约定的目录和命名规范存放，保证文件可追溯到需求来源。
+
+### 目录结构
+
+| 目录 | 内容 | 可见性 |
+|------|------|--------|
+| `docs/哲学理论/` | 哲学理论基础文章 | 公开 |
+| `docs/大田精准耕播智能决策系统/` | 项目文档（需求/架构/规范） | 公开 |
+| `TODO/` | 开源协作 TODO，与 docs/ 平级 | 公开 |
+| `.trae/plans/` | 需求方案 + 任务拆分 + 轮间交接手册 | 开发内部 |
+| `.trae/reviews/` | 方案评审 + 逐轮 spec 评审 | 开发内部 |
+| `.trae/specs/` | 每轮 spec + tasks + checklist（三件套） | 开发内部 |
+| `.trae/rules/` | 项目规则文件 | 开发内部 |
+| `.trae/skills/` | SKILL 行为定义 | 开发内部 |
+| `.trae/scripts/` | 工具脚本 + MCP 服务器 | 开发内部 |
+
+### 命名规范
+
+格式：`{需求域名}-{本轮核心内容}-{产物类型}-v{版本号}`
+
+- **需求域名** 必须与对应的需求/功能保持一致，保证文件名可追溯到需求来源
+- **产物类型** 使用英文关键词：`plan`（方案）、`execution`（拆分）、`handoff`（交接）、`review`（评审）、`spec-review`（spec 评审）
+- 单个需求的所有文件共享同一需求域名前缀，可通过 `grep` / `ls` 一次捞出全部相关文件
+
+### 命名示例
+
+```
+farm-agent-多轮对话能力专家链路优化统一状态管理-plan-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-7轮原子事务拆分-execution-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-7轮原子事务交接-handoff-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-方案评审-review-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-round1-类型收敛-thinkingLevel路由-spec-review-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-round2-响应策略裁决-spec-review-v1.md
+farm-agent-多轮对话能力专家链路优化统一状态管理-round3-专家注册分析上下文-spec-review-v1.md
+```
+
+### ADD 工作流三大阶段与目录对应
+
+```
+需求理解 + 任务拆分 → .trae/plans/      （plan + execution + handoff）
+    ↓
+评审                    → .trae/reviews/    （plan-review + roundN-spec-review）
+    ↓
+Spec 执行              → .trae/specs/       （三件套：spec + tasks + checklist）
+```
+
+---
+
 ## MCP 工具约束
 
 本项目配置了 MCP（Model Context Protocol）服务器，将 ADD 范式约束从"AI 读取规则后尝试遵守"升级为"AI 调用工具获取确定性结果"。
