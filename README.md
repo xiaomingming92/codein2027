@@ -2,7 +2,7 @@
 
 # codein2027
 ## ADD 审计驱动开发范式 | Audit-Driven Development
-### 这是哲学理论和意图驱动项目 Human Intent Operating Systemed Project · 长周期AI自主开发工程化实现。你一定要看.trea/路径下的文件，否则你无法理解编程是如何自行演化的，你用传统的理解看agent代码的质量就是认知错位，这个项目agent代码才写了15天！！！
+### 这是哲学理论和意图驱动项目 Human Intent Operating Systemed Project · 长周期AI自主开发工程化实现。你一定要看.trea/路径下的文件，否则你无法理解编程是如何自行演化的，你用传统的理解看agent代码的质量就是认知错位，这个项目理论和基础建设我准备了10多年，agent代码才写了15天（我能用ADD验证代码会收敛为需求设计的样子）！！！
 
 [![GitHub Stars](https://img.shields.io/github/stars/xiaomingming92/codein2027)](https://github.com/xiaomingming92/codein2027)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-6366f1)](./LICENSE.md)
