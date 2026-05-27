@@ -11,7 +11,7 @@
 
 ---
 ### 📢 首创官方声明
-**ADD (Audit-Driven Development) 审计驱动开发范式 由 xiaomingming92 于 2026年5月 开始开发。**
+**ADD (Audit-Driven Development) 审计驱动开发范式 由 xiaomingming92 于 2026年5月 开始总结和实践，思想准备是2014年，首次哲学理论提交是2026年1月。**
 本仓库为 ADD 范式**原始官方实现**。如果你觉得这东西有价值，**给个 Star 是对原创最基本的尊重**——不费电，但能让我们认知对齐。
 
 </div>
