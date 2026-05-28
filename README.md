@@ -12,6 +12,27 @@
 ---
 ### 📢 首创官方声明
 **ADD (Audit-Driven Development) 审计驱动开发范式 由 xiaomingming92 于 2026年5月 开始总结和实践，思想准备是2014年，首次哲学理论提交是2026年1月。**
+
+<details>
+<summary><b>🔗 Git 时间戳验证（任何人可自行验证）</b></summary>
+
+```bash
+git log --follow --format="%ai  %an <%ae>  %s" -- "docs/哲学理论/"
+```
+输出（SHA 不可篡改。三个署名共用一个邮箱 `wujixmm@gmail.com`，同一作者无疑）：
+
+```
+2026-01-09  Z2-WIN\xmm   <wujixmm@gmail.com>  docs: init
+2026-01-09  Z2-WIN\xmm   <wujixmm@gmail.com>  docs: format
+2026-01-12  wujixmm      <wujixmm@gmail.com>  docs: 全链路集成 AI 扩大了不可逆的认知降维风险
+2026-01-12  Z2-WIN\xmm   <wujixmm@gmail.com>  docs: 文档编号
+2026-01-12  Z2-WIN\xmm   <wujixmm@gmail.com>  docs: update doc name
+2026-02-02  Z2-WIN\xmm   <wujixmm@gmail.com>  feat: 嵌入式路径演化策略
+2026-05-26  xiaomingming <wujixmm@gmail.com>  docs: docs体系完善（重组到 docs/哲学理论/）
+```
+
+</details>
+
 本仓库为 ADD 范式**原始官方实现**。如果你觉得这东西有价值，**给个 Star 是对原创最基本的尊重**——不费电，但能让我们认知对齐。
 
 </div>
