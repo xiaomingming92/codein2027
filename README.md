@@ -365,6 +365,12 @@ farm-agent 的 7 轮原子事务迭代全程可追溯，关键文件如下：
 
 ---
 
+## 致谢
+
+感谢以下协作者对本项目的贡献和启发：
+
+- **[milktea](https://github.com/Milkycoffees/node_livid)** — 在 Node RuoYi 项目中首次证明了"Layer 2 运行时审计可以完全自动记录"（Express 中间件覆盖 `res.json()` 拦截 POST/PUT/DELETE，自动写入审计日志）。这一实践直接启发了 ADD-0.3 自动审计机制的设计。
+
 ## 关于首创
 
 ADD (Audit-Driven Development) 审计驱动开发范式由 xiaomingming92 于 2026 年 5 月开始系统总结和实践，思想准备始于 2014 年。首次哲学理论提交（`docs/哲学理论/`）时间为 2026 年 1 月。
@@ -385,3 +391,6 @@ git log --follow --format="%ai  %an  %s" -- "docs/哲学理论/"
 ```
 
 我讨厌抄袭，所以把时间线放在这里——不是炫耀，是事实。
+
+---
+
