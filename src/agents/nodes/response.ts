@@ -98,6 +98,12 @@ export async function responseNode(state: typeof AgentState.State) {
       }
     : null
 
+  // 回路三 UI 闭环：推送质量自检信号到前端 verdict 面板
+  if (strategy.evolutionAdjustment && strategy.evolutionAdjustment.signals.length > 0) {
+    const adj = strategy.evolutionAdjustment
+    stream.emitStrategyAdjustment(adj.signals, adj.dominantAction, adj.promptSupplement)
+  }
+
   stream.responseStart()
 
   const input: ResponseInput = {

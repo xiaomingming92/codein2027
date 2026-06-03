@@ -63,6 +63,18 @@ export interface StreamingNodeEvent {
   detail?: string
 }
 
+export interface StrategyAdjustmentEvent {
+  type: "strategy_adjustment"
+  signals: Array<{
+    metric: string
+    severity: "low" | "medium" | "high"
+    action: string
+    detail: { current: number; threshold: number; description: string }
+  }>
+  dominantAction: string | null
+  promptSupplement: string
+}
+
 export type StreamEvent =
   | RagSearchEvent
   | EvidenceFoundEvent
@@ -74,6 +86,7 @@ export type StreamEvent =
   | DoneEvent
   | ErrorEvent
   | StreamingNodeEvent
+  | StrategyAdjustmentEvent
 
 const streamCallbacks = new Map<string, (event: StreamEvent) => void>()
 
@@ -127,6 +140,8 @@ function resolveAuditPhase(event: StreamEvent): StreamBusAuditPhase {
       return "STREAM_BUS_EMIT_DONE"
     case "streaming_node":
       return "STREAM_BUS_EMIT"
+    case "strategy_adjustment":
+      return "STREAM_BUS_EMIT"
     default:
       return "STREAM_BUS_EMIT"
   }
@@ -154,6 +169,8 @@ function buildAuditDetail(event: StreamEvent): string {
       return `错误: ${event.message}`
     case "streaming_node":
       return `节点${event.status}: ${event.nodeName}`
+    case "strategy_adjustment":
+      return `回路三触发: ${event.signals.length}个维度 dominant=${event.dominantAction}`
   }
 }
 
@@ -177,6 +194,12 @@ function buildAuditExtra(event: StreamEvent): Record<string, unknown> | undefine
       return { keys: Object.keys(event.data) }
     case "done":
       return { threadId: event.threadId, traceId: event.traceId }
+    case "strategy_adjustment":
+      return {
+        signalCount: event.signals.length,
+        dominantAction: event.dominantAction,
+        metrics: event.signals.map((s) => s.metric),
+      }
     default:
       return undefined
   }

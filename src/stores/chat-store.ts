@@ -149,6 +149,7 @@ interface ChatState {
   streamingNodeSteps: StreamingNodeStep[]
   streamingIntent: Record<string, unknown> | null
   streamingVerdictData: Record<string, unknown> | null
+  streamingStrategyAdjustment: Record<string, unknown> | null
   addStreamingEvidence: (evidence: StreamingEvidence) => void
   setStreamingReasoningSteps: (steps: StreamingReasoningStep[]) => void
   setStreamingStatus: (status: string) => void
@@ -159,6 +160,7 @@ interface ChatState {
   setStreamingVerdict: (verdict: Record<string, unknown>) => void
   setStreamingIntent: (intent: Record<string, unknown>) => void
   setStreamingVerdictData: (verdict: Record<string, unknown>) => void
+  setStreamingStrategyAdjustment: (adjustment: Record<string, unknown> | null) => void
   clearStreamingContext: () => void
 }
 
@@ -188,6 +190,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingNodeSteps: [],
   streamingIntent: null,
   streamingVerdictData: null,
+  streamingStrategyAdjustment: null,
 
   createThread: () => {
     const id = generateId()
@@ -559,8 +562,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ streamingVerdictData: verdict })
   },
 
+  setStreamingStrategyAdjustment: (adjustment: Record<string, unknown> | null) => {
+    set({ streamingStrategyAdjustment: adjustment })
+  },
+
   clearStreamingContext: () =>
-    set({ streamingEvidence: [], streamingReasoningSteps: [], streamingStatus: "", streamingNodeSteps: [], streamingIntent: null, streamingVerdictData: null }),
+    set({ streamingEvidence: [], streamingReasoningSteps: [], streamingStatus: "", streamingNodeSteps: [], streamingIntent: null, streamingVerdictData: null, streamingStrategyAdjustment: null }),
 
   replaceThreadId: (oldId: string, newId: string) => {
     set((state) => {

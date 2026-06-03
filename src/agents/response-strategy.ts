@@ -1,4 +1,7 @@
 import type { ThinkingLevel } from "@/types/evidence"
+import type { AnalysisTurnRecord } from "@/services/analysis-context"
+import { assessExecutionQuality } from "@/services/path-metrics"
+import type { MetricBaselines, StrategyAdjustment } from "@/services/path-metrics"
 
 export type ResponseSectionType =
   | "conclusion"
@@ -17,6 +20,8 @@ export interface ResponseStrategy {
   promptHint: string
   maxTokens: number
   showEvidenceDigest: boolean
+  /** 回路三执行度评估结果（有信号时非空，供 response 节点推送至前端 verdict 面板） */
+  evolutionAdjustment?: StrategyAdjustment
 }
 
 export interface StrategyActiveExpert {
@@ -29,6 +34,8 @@ export interface StrategyContext {
   intent: string
   activeExperts?: StrategyActiveExpert[]
   hasNonPriorEvidence: boolean
+  turnHistory?: AnalysisTurnRecord[]
+  baselines?: MetricBaselines
 }
 
 export interface StrategyDescriptor {
@@ -105,7 +112,40 @@ export function resolveResponseStrategy(ctx: StrategyContext): ResponseStrategy 
     throw new Error(`No response strategy matched: thinkingLevel=${ctx.thinkingLevel}, intent=${ctx.intent}`)
   }
 
-  return decorateStrategy(descriptor.apply, ctx)
+  const baseStrategy = decorateStrategy(descriptor.apply, ctx)
+
+  // 回路三：执行度评估（同步计算，不阻塞返回）
+  // 评估失败时降级保留诊断信息，不中断主聊天流程
+  if (ctx.turnHistory && ctx.baselines && ctx.turnHistory.length >= 3) {
+    try {
+      const activeExpertIds = (ctx.activeExperts ?? []).map((e) => e.id)
+      const adjustment = assessExecutionQuality(
+        ctx.turnHistory,
+        activeExpertIds,
+        ctx.baselines,
+      )
+
+      if (adjustment.promptSupplement) {
+        baseStrategy.promptHint = baseStrategy.promptHint
+          ? `${baseStrategy.promptHint} ${adjustment.promptSupplement}`
+          : adjustment.promptSupplement
+      }
+
+      if (adjustment.dominantAction === "relax_evidence_filter") {
+        baseStrategy.promptHint = (baseStrategy.promptHint ?? "")
+          + " 注意：近期证据量持续下降，可适当放宽证据筛选条件。"
+      }
+
+      // 有调整信号时挂载到 strategy 上，供 response 节点推送至前端 verdict 面板
+      if (adjustment.signals.length > 0) {
+        baseStrategy.evolutionAdjustment = adjustment
+      }
+    } catch {
+      // 降级：执行度评估失败不影响响应
+    }
+  }
+
+  return baseStrategy
 }
 
 register({

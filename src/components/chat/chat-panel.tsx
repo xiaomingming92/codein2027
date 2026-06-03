@@ -62,6 +62,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
   const setStreamingVerdict = useChatStore((s) => s.setStreamingVerdict)
   const setStreamingIntent = useChatStore((s) => s.setStreamingIntent)
   const setStreamingVerdictData = useChatStore((s) => s.setStreamingVerdictData)
+  const setStreamingStrategyAdjustment = useChatStore((s) => s.setStreamingStrategyAdjustment)
   const setStreamingNodeStep = useChatStore((s) => s.setStreamingNodeStep)
   const completeStreamingNodeStep = useChatStore((s) => s.completeStreamingNodeStep)
   const completeStreamingNodeStepWithDetail = useChatStore((s) => s.completeStreamingNodeStepWithDetail)
@@ -317,6 +318,14 @@ export function ChatPanel({ className }: ChatPanelProps) {
             }
             setStreamingStatus(statusText)
             setStreamingNodeStep("retrieval", statusText)
+          }
+
+          if (parsed.type === "strategy_adjustment") {
+            setStreamingStrategyAdjustment({
+              signals: parsed.signals,
+              dominantAction: parsed.dominantAction,
+              promptSupplement: parsed.promptSupplement,
+            })
           }
 
           if (parsed.token) {

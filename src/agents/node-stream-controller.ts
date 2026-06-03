@@ -66,4 +66,13 @@ export class NodeStreamController {
   nodeCompleted(detail?: string): void {
     this.emit({ type: "streaming_node", nodeName: this.nodeName, status: "done", detail })
   }
+
+  emitStrategyAdjustment(signals: Array<{
+    metric: string
+    severity: "low" | "medium" | "high"
+    action: string
+    detail: { current: number; threshold: number; description: string }
+  }>, dominantAction: string | null, promptSupplement: string): void {
+    this.emit({ type: "strategy_adjustment", signals, dominantAction, promptSupplement })
+  }
 }

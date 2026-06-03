@@ -199,7 +199,7 @@ function ReasoningDetailPanel({ steps }: { steps: StreamingReasoningStep[] }) {
   )
 }
 
-function VerdictDetailPanel({ verdict }: { verdict: Record<string, unknown> }) {
+function VerdictDetailPanel({ verdict, strategyAdjustment }: { verdict: Record<string, unknown>; strategyAdjustment: Record<string, unknown> | null }) {
   const verdictType = verdict.type as string | undefined
   const confidence = verdict.confidence as Record<string, unknown> | undefined
   const conclusion = verdict.conclusion as Record<string, unknown> | undefined
@@ -252,6 +252,34 @@ function VerdictDetailPanel({ verdict }: { verdict: Record<string, unknown> }) {
           {(conclusion.actions as Array<Record<string, unknown>>).slice(0, 3).map((action, i) => (
             <p key={i} className="text-[10px] text-foreground/60 pl-2 line-clamp-1">• {String(action.description || action.content || JSON.stringify(action))}</p>
           ))}
+        </div>
+      )}
+      {strategyAdjustment && Array.isArray(strategyAdjustment.signals) && (strategyAdjustment.signals as Array<Record<string, unknown>>).length > 0 && (
+        <div className="space-y-1 border-t border-amber-500/10 pt-1.5 mt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-medium text-amber-500/80 uppercase tracking-wide">回路三 质量自检</span>
+            <span className="text-[9px] text-muted-foreground/50">
+              触发 {(strategyAdjustment.signals as Array<Record<string, unknown>>).length} 个维度
+              {strategyAdjustment.dominantAction ? ` · ${strategyAdjustment.dominantAction}` : ""}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            {(strategyAdjustment.signals as Array<Record<string, unknown>>).map((signal: Record<string, unknown>, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-[9px]">
+                <span className={cn(
+                  "w-1 h-1 rounded-full shrink-0",
+                  signal.severity === "high" ? "bg-red-500" : signal.severity === "medium" ? "bg-amber-500" : "bg-blue-500"
+                )} />
+                <span className="text-foreground/70">{String(signal.metric)}</span>
+                <span className="text-muted-foreground/50">{String(signal.action)}</span>
+              </div>
+            ))}
+          </div>
+          {typeof strategyAdjustment.promptSupplement === "string" && strategyAdjustment.promptSupplement && (
+            <p className="text-[9px] text-muted-foreground/40 italic pl-2 line-clamp-2">
+              + {String(strategyAdjustment.promptSupplement)}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -397,6 +425,7 @@ export function NodeProgressTimeline({ steps, className }: NodeProgressTimelineP
   const streamingReasoningSteps = useChatStore((s) => s.streamingReasoningSteps)
   const streamingIntent = useChatStore((s) => s.streamingIntent)
   const streamingVerdictData = useChatStore((s) => s.streamingVerdictData)
+  const streamingStrategyAdjustment = useChatStore((s) => s.streamingStrategyAdjustment)
 
   React.useEffect(() => {
     const hasRunning = steps.some((s) => s.status === "running")
@@ -450,7 +479,7 @@ export function NodeProgressTimeline({ steps, className }: NodeProgressTimelineP
       case "reasoning":
         return streamingReasoningSteps.length > 0 ? <ReasoningDetailPanel steps={streamingReasoningSteps} /> : undefined
       case "verdict":
-        return streamingVerdictData ? <VerdictDetailPanel verdict={streamingVerdictData} /> : undefined
+        return streamingVerdictData ? <VerdictDetailPanel verdict={streamingVerdictData} strategyAdjustment={streamingStrategyAdjustment} /> : undefined
       default:
         return undefined
     }
