@@ -15,59 +15,9 @@ import { agentAuditNodeStart, agentAuditNodeEnd, agentAuditNodeError } from "@/l
 import { ChainTracer } from "@/lib/agent-chain-tracer"
 import type { ChainTrace } from "@/lib/agent-chain-tracer"
 import type { AnalysisContext } from "@/services/analysis-context"
-import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
+import { AuditCallback } from "@/lib/layer2-callback"
 
 setAgentTools(agentTools as Parameters<typeof setAgentTools>[0])
-
-let _systemUserId: string | null = null
-
-async function getSystemUserId(): Promise<string> {
-  if (_systemUserId) return _systemUserId
-
-  let user = await prisma.user.findUnique({
-    where: { username: "ai-assistant" },
-    select: { id: true },
-  })
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        id: "ai-assistant",
-        username: "ai-assistant",
-        email: "ai-assistant@internal",
-        password: "internal",
-      },
-      select: { id: true },
-    })
-  }
-
-  _systemUserId = user.id
-  return _systemUserId
-}
-
-async function auditNodeEvent(
-  traceId: string,
-  action: string,
-  detail: Record<string, unknown>
-): Promise<void> {
-  try {
-    const systemUserId = await getSystemUserId()
-    await prisma.auditLog.create({
-      data: {
-        userId: systemUserId,
-        action,
-        targetType: "AGENT_NODE",
-        targetId: traceId,
-        traceId,
-        afterState: detail as Prisma.InputJsonValue,
-        reason: `${action} traceId=${traceId}`,
-      },
-    })
-  } catch {
-    // 审计写入失败不应阻塞主流程
-  }
-}
 
 const workflow = new StateGraph(AgentState)
   .addNode("intention", async (state: typeof AgentState.State) => {
@@ -119,23 +69,11 @@ async function wrapNodeWithAudit(
   const traceId = (state.conversationContext?.traceId as string) || ""
 
   agentAuditNodeStart(nodeName)
-  if (traceId) {
-    auditNodeEvent(traceId, `NODE_START_${nodeName}`, { nodeName })
-  }
 
   try {
     const result = await nodeFn(state)
     const durationMs = Date.now() - startTime
     agentAuditNodeEnd(nodeName, durationMs)
-
-    if (traceId) {
-      auditNodeEvent(traceId, `NODE_END_${nodeName}`, {
-        nodeName,
-        durationMs,
-        hasResult: !!result,
-        resultKeys: Object.keys(result),
-      })
-    }
 
     if (traceId && activeTracers.has(traceId)) {
       const tracer = activeTracers.get(traceId)!
@@ -153,14 +91,6 @@ async function wrapNodeWithAudit(
   } catch (error) {
     const durationMs = Date.now() - startTime
     agentAuditNodeError(nodeName, error, { durationMs })
-
-    if (traceId) {
-      auditNodeEvent(traceId, `NODE_ERROR_${nodeName}`, {
-        nodeName,
-        durationMs,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
 
     throw error
   }
@@ -201,16 +131,23 @@ export async function runAgent(
     }
   }
 ) {
+  const conversationContext = input.conversationContext || {}
+  const traceId = (conversationContext.traceId as string) || "unknown"
+  const userId = (conversationContext.userId as string) || "ai-assistant"
+
   const agentInput: Record<string, unknown> = {
     messages: input.messages,
     user: input.user || null,
     project: input.project || null,
     explicitIntent: input.explicitIntent || null,
-    conversationContext: input.conversationContext || {},
+    conversationContext,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return agent.invoke(agentInput as any, config as any)
+  return agent.invoke(agentInput as any, {
+    ...(config as any),
+    callbacks: [new AuditCallback(traceId, userId)],
+  })
 }
 
 export async function streamAgent(
@@ -228,17 +165,24 @@ export async function streamAgent(
     }
   }
 ) {
+  const conversationContext = input.conversationContext || {}
+  const traceId = (conversationContext.traceId as string) || "unknown"
+  const userId = (conversationContext.userId as string) || "ai-assistant"
+
   const agentInput: Record<string, unknown> = {
     messages: input.messages,
     user: input.user || null,
     project: input.project || null,
     explicitIntent: input.explicitIntent || null,
-    conversationContext: input.conversationContext || {},
+    conversationContext,
     analysisContext: input.analysisContext ?? null,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return agent.stream(agentInput as any, config as any)
+  return agent.stream(agentInput as any, {
+    ...(config as any),
+    callbacks: [new AuditCallback(traceId, userId)],
+  })
 }
 
 export { agentTools }
