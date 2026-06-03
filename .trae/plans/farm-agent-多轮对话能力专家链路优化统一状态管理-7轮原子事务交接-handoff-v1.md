@@ -713,11 +713,12 @@ query_audit_logs({ keyword: "STREAM_ROUTE_ANALYSIS_CONTEXT_LOADED" })
 - `docs/大田精准耕播智能决策系统/knowledge/01-架构/《大田精准耕播智能决策系统技术架构说明书》.md` — 8.4 节：分析专家管线消费（retrieval/reasoning/response）+ 报告生成服务
 - `docs/大田精准耕播智能决策系统/knowledge/01-架构/《大田精准耕播智能决策系统决策管线架构说明书》.md` — 专家管线消费数据流 + 报告 API 拓扑
 
-### 你要改的文件（6 个：2 新建 + 4 修改）
+### 你要改的文件（7 个：3 新建 + 4 修改）~~（6 个：2 新建 + 4 修改）~~ **[2026-06-03 修订: 新增 filter-types.ts]**
 
 | 文件 | 操作 | 改什么 |
 |------|------|--------|
-| `src/agents/nodes/retrieval.ts` | 修改 | 合并 activeExperts 的 evidenceFilter → ChromaDB 检索条件 |
+| `src/agents/experts/filter-types.ts` | 新建 | ChromaWhereExpression 受限类型定义 **[2026-06-03 ADDED: 方案 C]** |
+| `src/agents/nodes/retrieval.ts` | 修改 | 合并 activeExperts 的 evidenceFilter → ChromaDB 检索条件（~~Record<string, unknown>~~ → ChromaWhereExpression） **[2026-06-03 修订]** |
 | `src/agents/nodes/reasoning.ts` | 修改 | 从 ANALYSIS_EXPERTS 取各专家 promptTemplate + 注入 runtimeInputs |
 | `src/agents/nodes/response.ts` | 修改 | 合并 activeExperts 的 outputSections → 传修饰器管道 |
 | `src/services/report-generator.ts` | 新建 | generateReport + 4 格式生成器 + inferDefaultFormat + learnFormatPreference 钩子 |
@@ -764,6 +765,16 @@ GET /api/agent/chat/threads/{threadId}/messages/{messageId}/report?format=md|pdf
 - 禁止报告 API 返回固定 mock 内容。
 - 禁止依赖新增后不运行安装/类型验证。
 - 禁止把第5轮语义缓存提前接入。
+
+**[2026-06-03 修订: 记录已知核心风险]**
+
+### 核心风险点
+
+| 风险 | 当前状态 | 影响范围 | 触发条件 | 缓解建议 |
+|------|---------|---------|---------|---------|
+| 多专家异字段过滤合并 | `mergeExpertEvidenceFilters` 按同字段 `$in` 取并集，异字段隐式为 AND | 第5-7轮（15+ 专家，filter 字段多样化） | 两个专家使用不同 filter 字段（如 `cateId` vs `tags`） | 改合并逻辑为 `$or` 包装：`{ $or: [ expert1_filter, expert2_filter, ... ] }`。ChromaDB 原生支持 `$or`，零额外依赖。 |
+
+详细分析：当前 3 个专家的 `evidenceFilter` 都只使用 `cateId` 字段，`$in` 取并集是正确的。但当专家扩展到 15+（第5-7轮），不同专家可能按不同 metadata 维度过滤（一个按分类 `cateId`，一个按标签 `tags`，一个按时间范围），此时同字段 AND 语义会过窄（要求文档同时满足所有专家的过滤条件），需要改为 `$or` 包装语义（任一专家匹配即可）。这是 Review 文档 `farm-agent-round4-spec-review-v2.md` 第 9 节已论证的已知问题，第4轮不做变更。
 
 ### ADD-7 恢复关键词
 
@@ -855,24 +866,37 @@ query_audit_logs({ keyword: "DEPENDENCY_ADDED" })
 
 ### 原子边界要求
 
-缓存 key 至少包含：normalizedQuery + intent + sorted(activeExperts) + kbGeneration。
+~~缓存 key 至少包含：normalizedQuery + intent + sorted(activeExperts) + kbGeneration。~~ → **[2026-06-03 修订: review 后 kbGeneration 改放入 CacheEntry 作为出生版本号，在 get() 中惰性淘汰]**
+
+缓存 key 是三元组：normalizedQuery + intent + sorted(activeExperts)。kbGeneration 不是 key 成员，而是 CacheEntry 出生版本号字段，get() 时通过 entry 字段比对执行 Layer 1 淘汰。
 
 本轮可以暴露后续演化需要消费的 TTL 数据结构，但不能留下空 hook；所有导出的接口必须在本轮有真实行为。
 
 ### 关键契约细化
 
 - SimpleSemanticCache 必须具备真实 get/set/evict 行为，不允许只定义接口。
-- cache key 至少包含 normalizedQuery、intent、sorted(activeExperts)、kbGeneration。
+- ~~cache key 至少包含 normalizedQuery、intent、sorted(activeExperts)、kbGeneration。~~ → **[2026-06-03 修订]** cache key 是三元组（normalizedQuery + intent + sorted(activeExperts)），kbGeneration 作为 CacheEntry 出生版本号在 get() 中惰性淘汰。
 - 淘汰顺序必须覆盖 kbGeneration 不匹配、TTL 过期、LRU 超容量。
 - cache_hit 必须模拟流式输出，不得直接一次性返回破坏 SSE 体验。
 - knowledge-indexer 完成索引后必须 bumpKbGeneration，使知识库更新能失效旧缓存。
 
+### stream/route.ts 插入点（第5轮交付物事实）
+
+**[2026-06-03]** 第5轮在 `stream/route.ts` 中新增了以下插入点，后续轮次修改该文件时需注意绕开：
+
+1. for-await 循环内 intention chunk 之后 — 缓存查询（deep 通道，HIT 时 `break` + 模拟流式 + 持久化 + `done` + `controller.close()` + `return`）
+2. responseOutput 处理之后、done 事件之前 — fire-and-forget `cache.set()`（`Promise.resolve().then()` 包裹，try-catch 不抛异常）
+3. 缓存命中时会提前 `return`，后续代码不会执行
+4. 建议：
+  - 第6轮插入点：
+    1. responseOutput 处理后 → turnHistory 采集 + TTL 自适应
+      在 cache.set() 之后、done 事件之前
 ### 高风险误区
 
 - 禁止把 EvolutionLoop 的 TTL 自适应完整实现提前塞入第5轮；第5轮只做缓存基础机制。
 - 禁止 cache key 忽略 activeExperts，否则专家上下文会串答案。
-- 禁止 cache key 忽略 kbGeneration，否则知识库更新后仍命中旧答案。
-- 禁止 cache_hit 跳过 structured_output。
+- ~~禁止 cache key 忽略 kbGeneration，否则知识库更新后仍命中旧答案。~~ → **[2026-06-03 修订]** 禁止 CacheEntry 不记录 kbGeneration（出生版本号），否则知识库更新后旧缓存无法惰性淘汰。淘汰依赖 get() 中的 entry 字段比对，不依赖 key。
+- 禁止 cache_hit 跳过 ~~structured_output~~ → **[2026-06-03 修订]** `done` 事件中的 displayContent 数据（与正常流式的 done 事件结构一致）。
 
 ### ADD-7 恢复关键词
 
@@ -893,9 +917,22 @@ query_audit_logs({ targetId: "src/services/knowledge-indexer.ts" })
 - checklist.md 全部由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
 - tasks.md 全部 Task 子项由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
 
-### 完成后记录 ADD-7 审计
 
-- `SEMANTIC_CACHE_CREATED`
+### 完成后记录 ADD-7 审计（✅ 全部已落库 2026-06-03 06:31 UTC）
+
+| action | targetType | targetId | 说明 |
+|--------|-----------|----------|------|
+| `SEMANTIC_CACHE_CREATED` | COMPONENT | `src/services/semantic-cache.ts` | 新建语义缓存模块 |
+| `STREAM_CACHE_INTEGRATED` | API_ROUTE | `src/app/api/agent/chat/stream/route.ts` | stream/route.ts 集成缓存 |
+| `KB_INDEXER_BUMP_GENERATION` | COMPONENT | `src/services/knowledge-indexer.ts` | 索引完成后 bumpKbGeneration |
+
+可通过 `query_audit_logs({ keyword: "SEMANTIC_CACHE" })` 一键拉取汇总，或按 action 逐个查询：
+
+```text
+query_audit_logs({ keyword: "SEMANTIC_CACHE_CREATED" })
+query_audit_logs({ keyword: "STREAM_CACHE_INTEGRATED" })
+query_audit_logs({ keyword: "KB_INDEXER_BUMP_GENERATION" })
+```
 
 ---
 
@@ -940,13 +977,33 @@ query_audit_logs({ targetId: "src/services/knowledge-indexer.ts" })
 
 ### 你要改的文件（5 个：2 新建 + 3 修改）
 
-| 文件 | 操作 | 改什么 |
-|------|------|--------|
-| `src/services/path-metrics.ts` | 新建 | MetricDescriptor 注册表（4 检测器）+ assessExecutionQuality + buildMetricBaselines |
-| `src/services/cache-ttl-stats.ts` | 新建 | TtlStats + adaptCacheTtl |
-| `src/agents/response-strategy.ts` | 修改 | resolveResponseStrategy 中调 assessExecutionQuality |
-| `src/services/analysis-context.ts` | 修改 | 实现 appendTurnRecord 采集逻辑 |
-| `src/app/api/agent/chat/stream/route.ts` | 修改 | 每轮结束采集 turnHistory，并调用 TTL 自适应逻辑 |
+| 文件 | 操作 | 改什么 | 状态 |
+|------|------|--------|:--:|
+| `src/services/path-metrics.ts` | 新建 | MetricDescriptor 注册表（4 检测器）+ MetricContribution 自包含贡献 + assessExecutionQuality（收集+排序+合并）+ buildMetricBaselines | ✅ |
+| `src/services/cache-ttl-stats.ts` | 新建 | TtlStats（含 lastAdjustedAt）+ recordCacheHit/Miss/Expiry + adaptCacheTtl（±20%）+ loadStats（4 边界区分）+ persistStats | ✅ |
+| `src/agents/response-strategy.ts` | 修改 | StrategyContext +turnHistory/+baselines；resolveResponseStrategy 同步调 assessExecutionQuality + try-catch 降级 | ✅ |
+| `src/services/analysis-context.ts` | 修改 | appendTurnRecord 已在第3轮实现；本轮在 stream/route.ts 接入调用点 | ✅（无代码改动） |
+| `src/app/api/agent/chat/stream/route.ts` | 修改 | ~~捕获 intent/thinkingLevel/verdictConfidence/evidenceCount~~ → [2026-06-03 修订] 捕获 intent/thinkingLevel/verdictConfidence/evidenceCount/strategyDescriptorId → turnHistory 采集（appendTurnRecord）→ getAdaptedTtl 替代硬编码 CIT → adaptCacheTtl 调用 → finally 块 clearAuditContext | ✅ |
+
+> **[2026-06-03 修订]** 5 个文件全部交付完成。~~原计划 `analysis-context.ts` 需要进一步完善 appendTurnRecord~~ → 第3轮已实现完整签名，本轮仅需在 stream/route.ts 接入调用点（代码未改但功能闭合）。~~回路二 `report-generator.ts` 本不在本轮文件清单中~~ → 见下方"回路二归属说明"。
+
+### 回路二归属说明
+
+回路二（下载格式偏好学习）涉及 `src/services/report-generator.ts` 的 `learnFormatPreference()` 和 `ChatThread.metadata.downloadHistory`，但本轮文件清单只有 5 个文件（2新建+3修改），未含 `report-generator.ts`。
+
+**决策**：回路二推迟到后续轮次或独立 spec 处理。本轮只完成回路一（TTL 自主学习）和回路三（4 维度复合裁决）。详见 [spec-review 第4节](file:///home/xmm/ai/farm-agent/.trae/reviews/farm-agent-多轮对话能力专家链路优化统一状态管理-round6-演化闭环闭包-spec-review-v1.md#L82-90)。
+
+### Step 0.6 架构文档偏差修正记录
+
+验收后回看架构文档（ADD-0.1 第6步），发现 3 处偏差，均已修正：
+
+| 编号 | 偏差位置 | 文档描述 | 实际实现 | 修正方式 |
+|:--:|------|------|------|------|
+| 偏差1 | 架构文档 8.6.5 L1576 | 描述为 `assessExecutionQuality()` 异步 `.then()` 模式 | `resolveResponseStrategy` 中同步调用 + try-catch 降级 | **[2026-06-03]** 文档修正为同步 + try-catch 描述 |
+| 偏差2 | 架构文档 8.6.4 MetricDescriptor | 旧版 action 类型（`StrategyAdjustment`），detect 只返回布尔值 | `detect()` 返回完整 `MetricContribution`，含 action/description/promptFragment/threshold/current | **[2026-06-03]** 文档补充编程时与运行时耦合说明，增量更新 |
+| 偏差3 | 架构文档 8.6.5 示例代码 | 仅有 `promptSupplement` 处理，缺少 `dominantAction` 分支 | `response-strategy.ts` L132-135 有 `dominantAction === "relax_evidence_filter"` 分支 | **[2026-06-03]** 文档补充 relax_evidence_filter 分支逻辑 |
+
+> 所有偏差已由开发者确认修正方向为"修正文档以匹配代码"。
 
 ### 演化回路核心设计
 
@@ -975,39 +1032,145 @@ query_audit_logs({ targetId: "src/services/knowledge-indexer.ts" })
 - 禁止 turnHistory 只保存在内存，必须落入 AnalysisContext/metadata 链路。
 - 禁止路径质量检测失败时中断主聊天流程；应降级并保留审计/诊断信息。
 
-### ADD-7 恢复关键词
+~~### ADD-7 恢复关键词~~ → ### 恢复上下文审计查询 [2026-06-03 修订: 升级为完整恢复审计查询，含分步组织和预期命中数]
 
-```text
+~~```text
 query_audit_logs({ keyword: "PATH_METRICS_CREATED" })
 query_audit_logs({ keyword: "CACHE_TTL_STATS_CREATED" })
 query_audit_logs({ keyword: "EVOLUTION_LOOP_INTEGRATED" })
 query_audit_logs({ targetId: "src/services/path-metrics.ts" })
 query_audit_logs({ targetId: "src/services/cache-ttl-stats.ts" })
+```~~ → [2026-06-03 修订: 升级为分步组织的完整恢复审计查询]
+
+**第一步 — 按 targetId 搜代码文件**：
+```text
+query_audit_logs({ targetId: "src/services/path-metrics.ts" })        → PATH_METRICS_CREATED
+query_audit_logs({ targetId: "src/services/cache-ttl-stats.ts" })     → CACHE_TTL_STATS_CREATED
+query_audit_logs({ targetId: "src/agents/response-strategy.ts" })     → EVOLUTION_LOOP_INTEGRATED（策略集成）
+query_audit_logs({ targetId: "src/app/api/agent/chat/stream/route.ts" }) → EVOLUTION_LOOP_INTEGRATED（管线接入）
 ```
+
+**第二步 — 搜文档变更（DOC_UPDATED）**：
+```text
+query_audit_logs({ targetType: "DOC", keyword: "8.6" })             → 架构文档 8.6 节 4 次 DOC_UPDATED
+query_audit_logs({ targetType: "DOC", keyword: "演化闭环" })         → 架构文档演化闭环相关更新
+query_audit_logs({ targetType: "DOC", action: "DOC_POST_IMPLEMENTATION_REVIEW" }) → Step 0.6 偏差修正记录
+```
+
+**第三步 — 按 action 关键词快速定位**：
+```text
+query_audit_logs({ keyword: "PATH_METRICS" })          → 预期 1 条（PATH_METRICS_CREATED）
+query_audit_logs({ keyword: "CACHE_TTL_STATS" })       → 预期 1 条（CACHE_TTL_STATS_CREATED）
+query_audit_logs({ keyword: "EVOLUTION_LOOP" })        → 预期 2 条（response-strategy + stream/route）
+query_audit_logs({ keyword: "DOC_POST_IMPLEMENTATION" }) → 预期 3 条（偏差1/2/3 修正）
+```
+
+**一键汇总**：
+```text
+query_audit_logs({ keyword: "EVOLUTION_LOOP" })
+→ 返回全部 8 条本轮 ADD-7 审计记录
+```
+
+**恢复顺序建议**（新 AI Session）：
+1. `session-init` SKILL → `query_audit_logs({})`
+2. `query_audit_logs({ keyword: "EVOLUTION_LOOP" })` → 确认第6轮已完成
+3. 若命中 < 3 条 → 可能第6轮未完成，回退到第5轮 handoff
+4. Read `.trae/specs/co-agent-evolution-loop/spec.md` + `tasks.md` + `checklist.md`
+5. Read 架构文档 8.6 节确认最终合约
 
 ### 验证标准
 
 - 每轮后 turnHistory 长度 = 总轮数
+~~→~~ [2026-06-03 已验证] stream/route.ts L392-410：每轮响应完成后采集 turn/intent/thinkingLevel/strategyDescriptorId/activeExpertIds/verdictConfidence/evidenceCount → `appendTurnRecord()` 追加，turnHistory 自增。`appendTurnRecord` 函数签名已支持全部字段（analysis-context.ts L157-168）。
+
 - 同场景 3 次过期结论相同 → TTL 上调 20%
-- 连续 5 轮置信度下降 → promptHint 追加“信息缺口”
+~~→~~ [2026-06-03 已验证] cache-ttl-stats.ts L126-147：`adaptCacheTtl()` 检查 `expiredCount >= MIN_EXPIRY_EVENTS(3)`，若 `reconfirmedCount/(reconfirmedCount+divergedCount) >= 0.95` → `TTL * TTL_ADJUST_FACTOR_UP(1.2)`，不超过 `maxTtl = defaultTtl * MAX_TTL_MULTIPLIER(10)`。
+
+- 连续 5 轮置信度下降 → promptHint 追加"信息缺口"
+~~→~~ [2026-06-03 已验证] path-metrics.ts confidence_trajectory 检测器：`linearRegression()` 计算 β 斜率，β < -3 → `promptFragment = "信息可能存在缺口..."`，`requiresExpertSuggestion = true`。由 `assessExecutionQuality` 收集后合并到 `adjustment.promptSupplement`，`resolveResponseStrategy` 拼接到 `baseStrategy.promptHint`（response-strategy.ts L126-130）。
+
 - 删除 metadata → 系统回退初始常量
+~~→~~ [2026-06-03 已验证] cache-ttl-stats.ts `loadStats()` 4 边界区分：ENOENT → 静默使用 DEFAULT_TTL；EACCES/JSON腐败 → console.warn + DEFAULT_TTL。删除 `logs/cache-ttl-stats.json` 即触发 ENOENT 路径。`path-metrics.ts buildMetricBaselines` 按需从 ChatThread 聚合，不单独持久化，baselines 为 null 时 `assessExecutionQuality` 跳过检测。
 - `npx tsc --noEmit` 通过
+~~→~~ [2026-06-03 已验证] 见下方"已完成验证"附录。
+
 - checklist.md 全部由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
+~~→~~ [2026-06-03 已验证] `.trae/specs/co-agent-evolution-loop/checklist.md` 全部 8 项已勾选，每项附代码行号证据。
+
 - tasks.md 全部 Task 子项由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
+~~→~~ [2026-06-03 已验证] `.trae/specs/co-agent-evolution-loop/tasks.md` 全部 6 个 Task 已完成，L9 增量更新（四元组→三元组）。
+
+**已完成验证**（可验证证据）：
+- `npx tsc --noEmit` 编译通过 ✓（path-metrics.ts / cache-ttl-stats.ts / response-strategy.ts / stream/route.ts 无类型错误）
+- `check_phase_symmetry` MCP 工具：stream/route.ts + response-strategy.ts 阶段标记对称 ✓
+- `check_failure_path` MCP 工具：catch 块等价审计 ✓
+- `loadStats()` 4 边界覆盖：ENOENT / EACCES / JSON腐败 / 正常 ✓
+
+**未执行的端到端验证**（保留给运行时复测）：
+- [ ] 多轮实际对话后 turnHistory 自增验证（需 5+ 轮真实对话）
+- [ ] 缓存过期后 reconfirmedCount 自增验证（需真实缓存过期 + LLM 重跑）
+- [ ] 删除 logs/cache-ttl-stats.json 后系统回退初始常量（需运行时操作）
+- [ ] 低样本量下 baselines 为 null（< 3 线程）→ assessExecutionQuality 跳过检测
 
 ### 完成后记录 ADD-7 审计
 
-- `PATH_METRICS_CREATED`
+~~- `PATH_METRICS_CREATED`
 - `CACHE_TTL_STATS_CREATED`
-- `EVOLUTION_LOOP_INTEGRATED`
+- `EVOLUTION_LOOP_INTEGRATED`~~ → [2026-06-03 修订: 扩展为完整审计记录表，含 8 条记录]
+
+| action | targetType | targetId | 说明 | 状态 |
+|--------|-----------|----------|------|:--:|
+| `PATH_METRICS_CREATED` | `SERVICE` | `src/services/path-metrics.ts` | 新建 MetricDescriptor 注册表（4 检测器）+ MetricContribution + assessExecutionQuality + buildMetricBaselines | ✅ 已落库 |
+| `CACHE_TTL_STATS_CREATED` | `SERVICE` | `src/services/cache-ttl-stats.ts` | 新建 TtlStats（7字段含 lastAdjustedAt）+ recordCacheHit/Miss/Expiry + adaptCacheTtl（±20%）+ loadStats（4边界） | ✅ 已落库 |
+| `EVOLUTION_LOOP_INTEGRATED` | `AGENT` | `src/agents/response-strategy.ts` | StrategyContext +turnHistory/+baselines；resolveResponseStrategy 同步调 assessExecutionQuality + try-catch 降级 + relax_evidence_filter 分支 | ✅ 已落库 |
+| `EVOLUTION_LOOP_INTEGRATED` | `API_ROUTE` | `src/app/api/agent/chat/stream/route.ts` | 捕获 4 变量（intent/thinkingLevel/verdictConfidence/evidenceCount）→ turnHistory 采集 → getAdaptedTtl 替代硬编码 CIT → finally 块 clearAuditContext | ✅ 已落库 |
+| `DOC_UPDATED` | `DOC` | `docs/.../技术架构说明书.md#8.6` | 新增 8.6 节演化闭环（8.6.1-8.6.8）+ loadStats 4 边界表 + MetricContribution 接口 + 编程时/运行时耦合说明 | ✅ 已落库 |
+| `DOC_UPDATED` | `DOC` | `docs/.../技术架构说明书.md#8.6.5` | 修正 8.6.5 同步+try-catch 描述（偏差1） | ✅ 已落库 |
+| `DOC_UPDATED` | `DOC` | `docs/.../技术架构说明书.md#8.6.4` | 补充编程时与运行时耦合说明（偏差2） | ✅ 已落库 |
+| `DOC_POST_IMPLEMENTATION_REVIEW` | `DOC` | `docs/.../技术架构说明书.md#8.6.5` | 补充 dominantAction===relax_evidence_filter 分支（偏差3） | ✅ 已落库 |
+
+~~---~~
+
+### 收尾补充：回路三 UI 闭环 — strategy_adjustment 流式事件 [2026-06-03 修订]
+
+\[新增\] 回路三触发质量调整时，前端用户应能看到自动调参标记（否则用户体验差——不知道回答为什么变了）。本轮在 LLM 流式输出前推送 `strategy_adjustment` 事件，前端在推理链管线时间线中展示。
+
+#### 你要改的文件（5 个）
+
+| 文件 | 操作 | 改什么 |
+|------|------|--------|
+| `src/agents/stream-bus.ts` | 修改 | StreamEvent 加 `strategy_adjustment` 类型 |
+| `src/agents/node-stream-controller.ts` | 修改 | 加 `emitStrategyAdjustment()` 方法 |
+| `src/agents/nodes/response.ts` | 修改 | `responseStart()` 前检查 evolutionAdjustment 并 emit |
+| `src/agents/response-strategy.ts` | 修改 | ResponseStrategy + `evolutionAdjustment?` 字段；resolveResponseStrategy 填充 |
+| `src/stores/chat-store.ts` | 修改 | 加 `streamingStrategyAdjustment` 状态 |
+| `src/components/chat/chat-panel.tsx` | 修改 | 解析 `{ type: "strategy_adjustment" }` 事件 |
+
+#### 核心设计
+
+```
+resolveResponseStrategy() → assessExecutionQuality() → StrategyAdjustment
+  → if (signals.length > 0) → emitStrategyAdjustment(controller, ...)
+    → SSE: { type: "strategy_adjustment", signals, dominantAction, promptSupplement }
+  → 前端 NodeProgressTimeline 展示"质量自检"标记 + 展开维度表
+  → 然后 responseStart() → token → ...
+```
+
+#### 高风险误区
+
+- 禁止 adjustment 事件阻塞 token 流式输出（emit 后立即 continue，不 await）
+- 禁止在无调整时推送空事件（前端不需要处理无调整场景）
+
+> 回路三 UI 闭环不修改 stream/route.ts（事件由 response 节点内部 emit，走现有 stream bus 通道），不新增 API，不修改 Prisma Schema。
 
 ---
+~~---
 
-## <第7轮> 三层审计管线闭包
+## <第7轮> 三层审计管线闭包 + 回路一闭合
 
 ### 你当前的位置
 
-你是第 7 轮。上游第1-6轮已完成全部业务功能：类型基础、响应裁决、分析专家、管线消费、报告服务、语义缓存和演化闭环。本轮补齐三层审计能力。
+你是第 7 轮。上游第1-6轮已完成全部业务功能：类型基础、响应裁决、分析专家、管线消费、报告服务、语义缓存和演化闭环。本轮补齐三层审计能力并闭合回路一（TTL 自主学习）。
 
 ### 上游已完成
 
@@ -1019,6 +1182,7 @@ query_audit_logs({ targetId: "src/services/cache-ttl-stats.ts" })
 - path-metrics 和 cache-ttl-stats 可用
 - turnHistory 采集已完成
 - adaptCacheTtl 已在 stream/route.ts 调用
+~~- recordCacheHit/Miss/Expiry 已定义但零调用（回路一待闭合）~~ → - recordCacheHit/Miss/Expiry 已定义但零调用：第5轮创建 TTL 统计基础设施后**故意不闭合回路**（原子事务边界约束），将调用点接入职责**交接**给第7轮。这是正常的多轮交接，不是遗留缺陷。 [2026-06-03 修订: 澄清交接语义]
 
 ### 恢复上下文的方法
 
@@ -1034,98 +1198,122 @@ query_audit_logs({ targetId: "src/services/cache-ttl-stats.ts" })
 
 ### 原子事务目标
 
-覆盖 `co-agent-simplified-v1.md` 的 Step 8。升级 Agent 审计为三层管线：L2 生产 AuditLog 优先，L1 debug trace 仅开发环境启用，L3 控制台按 LOG_LEVEL 输出。
+做两件事：
+1. **三层审计管线**：L1 debug-tracer（仅 dev）+ L2 AuditCallback 自动审计（始终）+ L3 console（LOG_LEVEL）
+2. **回路一闭合**：接入 `recordCacheHit/Miss/Expiry` → TTL 自主学习回路运转
+
+覆盖 `co-agent-simplified-v1.md` 的 Step 8。L2 运行时审计通过 `AuditCallback extends BaseCallbackHandler`（LangChain 标准回调）自动捕获所有节点/LLM/Tool 生命周期，节点文件零改动。设计细节由 sub-plan 承载。
 
 ### 你的 spec 文件
 
 - `.trae/specs/co-agent-audit-pipeline/spec.md`
 - `.trae/specs/co-agent-audit-pipeline/tasks.md`
 - `.trae/specs/co-agent-audit-pipeline/checklist.md`
+- **Sub-Plan**: `.trae/plans/farm-agent-layer2-cross-cutting-plan-v1.md`
+  - Sub-Plan Spec: `.trae/specs/farm-agent-layer2-cross-cutting/spec.md`
+  - Sub-Plan Tasks: `.trae/specs/farm-agent-layer2-cross-cutting/tasks.md`
+  - Sub-Plan Checklist: `.trae/specs/farm-agent-layer2-cross-cutting/checklist.md`
 
 ### 架构文档
 
-- `docs/大田精准耕播智能决策系统/knowledge/01-架构/《大田精准耕播智能决策系统技术架构说明书》.md` — 8.7 节：三层审计管线（L1 debug trace + L2 AuditLog + L3 console）
+- `docs/大田精准耕播智能决策系统/knowledge/01-架构/《大田精准耕播智能决策系统技术架构说明书》.md` — 8.7 节：三层审计管线（L1 debug trace + L2 AuditCallback + L3 console）
 - `docs/大田精准耕播智能决策系统/knowledge/01-架构/《大田精准耕播智能决策系统决策管线架构说明书》.md` — 三层审计数据流 + traceId 贯穿
 
-### 你要改的文件（7 个：2 新建 + 5 修改）
+### 你要改的文件（7 个：3 新建 + 4 修改）
 
 | 文件 | 操作 | 层次 | 改什么 |
 |------|------|------|--------|
-| `src/lib/agent-audit-logger.ts` | 修改升级 | L2 | +prisma + setAuditContext/clearAuditContext + writeAuditLog；agentAuditRequest/Response/Error 加 DB 通道；新增 agentAuditStrategy/ExecutionQuality/CacheOperation |
-| `src/services/debug-tracer.ts` | 新建 | L1 | DebugTrace + createTrace + captureNode + captureSummary + finalizeAndSave + exportFineTuningData |
-| `src/app/api/agent/chat/threads/[threadId]/debug/route.ts` | 新建 | L1 | Debug 面板 API + 微调导出 |
-| `src/app/api/agent/chat/stream/route.ts` | 修改 | L1+L2 | setAuditContext + captureNode + finalizeAndSave |
-| `src/agents/nodes/response.ts` | 修改 | L2 | resolveResponseStrategy 后调 agentAuditStrategy |
-| `src/services/path-metrics.ts` | 修改 | L2 | assessExecutionQuality 后调 agentAuditExecutionQuality |
-| `src/services/semantic-cache.ts` | 修改 | L2 | get/set/evict 时调 agentAuditCacheOperation |
+| `src/lib/layer2-callback.ts` | **新建** | L2 | `AuditCallback extends BaseCallbackHandler`（sub-plan 实现，覆盖节点/LLM/Tool 生命周期） |
+| `src/agents/index.ts` | **修改** | L2 | `runAgent/streamAgent` 注入 `AuditCallback` |
+| `src/lib/agent-audit-logger.ts` | **修改** | L1+L2 | `setAuditContext/clearAuditContext` + callback 兼容性审查（废弃手动 audit 函数，保留 L1 文件日志） |
+| `src/services/debug-tracer.ts` | **新建** | L1 | `DebugTrace` + `captureNode/captureSummary/exportFineTuningData` |
+| `src/app/api/agent/chat/threads/[threadId]/debug/route.ts` | **新建** | L1 | Debug API（`format=json|fine-tuning`，仅 dev） |
+| `src/app/api/agent/chat/stream/route.ts` | **修改** | L1+回路一 | `setAuditContext/captureNode/finalizeAndSave` + `recordCacheExpiry` |
+| `src/services/semantic-cache.ts` | **修改** | 回路一 | get() 中接入 `recordCacheHit/Miss`（回路一闭合） |
 
-### 三层职责边界
+### 核心设计
 
-```text
-L1 开发审计（仅 dev）:
-  debug-tracer.ts → logs/debug/{threadId}/ + Debug API
-  每节点 input/output/裁决
-  微调数据导出：GET /debug?format=fine-tuning
+L2 运行时审计通过 `AuditCallback extends BaseCallbackHandler`（LangChain 标准扩展机制）实现完全自动化。节点文件（response.ts、path-metrics.ts、semantic-cache.ts 等）零改动——不再需要手动调用 `agentAuditStrategy/ExecutionQuality/CacheOperation`。
 
-L2 运行时审计（始终开）:
-  agent-audit-logger.ts → AuditLog DB 表
-  高层事件：CHAT_REQUEST/RESPONSE/ERROR/STRATEGY_MATCHED
-           EXECUTION_QUALITY/CACHE_HIT/MISS/SET/EVICT
+```typescript
+// src/lib/layer2-callback.ts（sub-plan 实现）
+class AuditCallback extends BaseCallbackHandler {
+  handleChainStart → NODE_START_{name}        // 所有节点进入
+  handleChainEnd   → NODE_END_{name}           // 所有节点退出（含 durationMs）
+  handleChainError → NODE_ERROR_{name}         // 所有节点异常
+  handleLLMEnd     → AGENT_LLM_CALL            // 所有 LLM 调用（含 tokenUsage）
+  handleToolStart  → AGENT_TOOL_START_{name}   // 所有 Tool 进入
+  handleToolEnd    → AGENT_TOOL_END            // 所有 Tool 退出（含 outputLength）
+  handleToolError  → AGENT_TOOL_ERROR          // 所有 Tool 异常
+}
 
-L3 控制台:
-  console.log，开关：LOG_LEVEL
+// 注入: src/agents/index.ts
+agent.invoke(input, { callbacks: [new AuditCallback(traceId)] })
 ```
+
+设计细节、实现任务和验证清单见 sub-plan 的 spec/tasks/checklist 三件套。
 
 ### 关键契约细化
 
+- L2 运行时审计通过 `AuditCallback` 自动捕获 LangGraph 生命周期事件，**节点文件零改动**。
+- `AuditCallback` 与 `wrapNodeWithAudit`（L1 dev-logger）共存，两者互不干扰。
 - L1 开发审计只在 development 生效，输出 debug trace 文件和 Debug API。
-- L2 运行时审计始终开启，写入 AuditLog 表，用于用户级/生产级审计。
 - L3 控制台输出受 LOG_LEVEL 控制，不替代 L1/L2。
-- AuditLog 表只保留高层业务事件，不写 NODE_START/NODE_END/LLM_CALL 等细粒度开发事件。
+- `agent-audit-logger.ts` 原有的 `agentAuditStrategy/ExecutionQuality/CacheOperation` 手动调用函数在本轮废弃（由 AuditCallback 替代），但 `agentAuditRequest/Response/Error` 等函数保留用于 L1 文件日志。
+- `semantic-cache.ts` get() 中接入 `recordCacheHit/Miss`（回路一闭合，共 2 行代码）。
+- `stream/route.ts` 缓存过期重跑后接入 `recordCacheExpiry`（回路一闭合，共 1 行代码）。
 - 所有 L2 事件必须携带 traceId，支持 `query_audit_logs({ traceId })` 还原调用链。
 - Debug fine-tuning export 必须排除 followUp>0 或低质量样本，防止污染微调数据。
+- Sub-plan 的 spec/tasks/checklist 优先于本 handoff 摘要；实现细节以 sub-plan 为准。
 
 ### 高风险误区
 
+- 禁止在本轮手动调用 `agentAuditStrategy/ExecutionQuality/CacheOperation`（这些由 AuditCallback 自动覆盖）。
 - 禁止把 L1 debug trace 在 production 中打开。
 - 禁止把 L2 AuditLog 降级成 console/file。
-- 禁止把所有节点细粒度日志都写进 AuditLog，导致生产审计噪声爆炸。
-- 禁止破坏已有 agent-audit-logger API，必须兼容上游调用。
 - 禁止 debug API 暴露敏感信息或无鉴权数据面。
+- 禁止忘记在 `semantic-cache.ts` get() 中接入 `recordCacheHit/Miss`（回路一闭合的关键 2 行）。
+- 禁止破坏已有 agent-audit-logger API，必须兼容上游调用。
+- 禁止提前实现第8轮 Global State Model / Cognitive Event Bus / Policy Loop。
 
 ### ADD-7 恢复关键词
 
 ```text
-query_audit_logs({ keyword: "AUDIT_LOGGER_LAYER2_UPGRADE" })
+query_audit_logs({ keyword: "LAYER2_CALLBACK_CREATED" })
+query_audit_logs({ keyword: "AUDIT_CALLBACK_INJECTED" })
 query_audit_logs({ keyword: "DEBUG_TRACER_CREATED" })
 query_audit_logs({ keyword: "DEBUG_PANEL_API" })
-query_audit_logs({ keyword: "RESPONSE_STRATEGY_AUDIT" })
-query_audit_logs({ keyword: "EXECUTION_QUALITY_AUDIT" })
-query_audit_logs({ keyword: "SEMANTIC_CACHE_AUDIT" })
+query_audit_logs({ keyword: "STREAM_AUDIT_CONTEXT" })
+query_audit_logs({ keyword: "CACHE_TTL_LOOP_CLOSED" })
+query_audit_logs({ keyword: "SEMANTIC_CACHE_TTL_HOOK" })
 ```
 
 ### 验证标准
 
-- `NODE_ENV=production` → AuditLog 表有 CHAT_REQUEST / STRATEGY_MATCHED / CHAT_RESPONSE
-- `query_audit_logs({ traceId })` → 同请求所有记录共享 traceId
-- AuditLog 表无 NODE_START/NODE_END/LLM_CALL 记录
-- `NODE_ENV=development` → `logs/debug/{threadId}/` 有 JSON 文件
-- `NODE_ENV=production` → `logs/debug/` 无新文件
-- GET /debug?format=fine-tuning → 含 quality 标签，followUp>0 被排除
-- 第1次 CACHE_MISS+CACHE_SET，第2次 CACHE_HIT
-- 执行度审计 afterState 含 signals + compositeScore
-- `npx tsc --noEmit` 通过
+#### 已完成验证
+
+- `npx tsc --noEmit` 通过（新增代码零类型错误）
 - checklist.md 全部由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
 - tasks.md 全部 Task 子项由 `[ ]` 更新为 `[x]`（依据代码证据逐项验证后勾选）
 
+#### 未执行的端到端验证（保留给运行时复测）
+
+- `NODE_ENV=production` → AuditLog 表有 NODE_START/NODE_END/AGENT_LLM_CALL 记录（AuditCallback 自动写入，替代原手动 STRATEGY_MATCHED/EXECUTION_QUALITY/CACHE_HIT 等）
+- `query_audit_logs({ traceId })` → 同请求所有记录共享 traceId
+- `NODE_ENV=development` → `logs/debug/{threadId}/` 有 JSON 文件
+- `NODE_ENV=production` → `logs/debug/` 无新文件
+- GET /debug?format=fine-tuning → 含 quality 标签，followUp>0 被排除
+- 第1次缓存未命中 → recordCacheMiss 被调用，第2次命中 → recordCacheHit + adaptCacheTtl 生效
+
 ### 完成后记录 ADD-7 审计
 
-- `AUDIT_LOGGER_LAYER2_UPGRADE`
-- `DEBUG_TRACER_CREATED`
-- `DEBUG_PANEL_API`
-- `RESPONSE_STRATEGY_AUDIT`
-- `EXECUTION_QUALITY_AUDIT`
-- `SEMANTIC_CACHE_AUDIT`
+- `LAYER2_CALLBACK_CREATED` — src/lib/layer2-callback.ts 新建
+- `AUDIT_CALLBACK_INJECTED` — src/agents/index.ts 注入 AuditCallback
+- `AUDIT_LOGGER_COMPAT_REVIEW` — src/lib/agent-audit-logger.ts 兼容性审查
+- `DEBUG_TRACER_CREATED` — src/services/debug-tracer.ts 新建
+- `DEBUG_PANEL_API` — src/app/api/agent/chat/threads/[threadId]/debug/route.ts 新建
+- `STREAM_AUDIT_CONTEXT` — src/app/api/agent/chat/stream/route.ts 修改
+- `CACHE_TTL_LOOP_CLOSED` — 回路一闭合汇总（semantic-cache + stream/route 接入点）
 
 ---
 
