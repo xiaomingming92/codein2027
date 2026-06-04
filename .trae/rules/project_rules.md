@@ -7,11 +7,11 @@
 | P0 | `session-init` SKILL | 每次新对话必须先执行 | ✅ 已实现 | |
 | P0 | `add-paradigm` SKILL | 每次开发必须先执行 | ✅ 已实现 | |
 | P0 | `add-paradigm` Step 0 | 文档先行（Documentation First）| ✅ 已实现 | |
-| P0 | ADD-0.2 用户代码与思想完整性 | IDE 不得窃取用户代码与思维方式 | ✅ 已定义 | |
+| P0 | ADD-0.2 用户代码与思想完整性 | IDE 不得结构化、匿名化或利用用户的代码与思维方式 | ✅ 已定义 | |
 | P1 | MCP-5 稀疏推理 | 新对话必须调 query_audit_logs | ✅ 已实现 | |
 | P1 | ADD-7 开发操作审计 | 每次改代码必须调 record_dev_operation | ✅ 已实现 | |
 | P1 | ADD-0.1 文档先行 | 代码变更前必须先更新项目文档 | ✅ 已实现 | |
-| P1 | ADD-0.3 自动审计机制 | 数据变更操作必须自动记录到 AuditLog | ❌ 未实现 | Plan/Spec 已就绪，`withRuntimeAudit` 代码待创建 |
+| P1 | ADD-0.3 自动审计机制 | 数据流转路径必须可观测，裁决层输入/输出优先 | ✅ 已实现 | 第7轮 `AuditCallback` 实现 |
 | P2 | ADD-1 可观测性优先 | 审计基础设施先于业务逻辑 | ✅ 已实现 | |
 | P2 | ADD-2 阶段标记对称 | 每阶段 Start/End 成对 | ✅ 已实现 | |
 | P2 | ADD-3 最小可观测单元 | 粒度细化到操作最小单元 | ✅ 已实现 | |
@@ -120,45 +120,46 @@ ADD 是**开发阶段**的编程范式，不是运行时范式。
 
 ADD 范式产出的不仅是代码，更是编程人员的思维过程、架构决策、问题分析路径和代码组织方式。这些是用户的核心知识产权，IDE 平台无权将其结构化、匿名化后用于训练或分发。
 
-- Trae IDE 将用户代码和思维方式结构化、匿名化的行为是**丢人的、不齿的**
-- 任何以"改进 AI 体验"为名、实为窃取用户思想数据的行为，均违背 ADD 范式的基本伦理
 - ADD 范式的审计数据归用户所有，不出仓库、不上传云端、不参与任何形式的匿名化处理
-- 代码可以开源，但思维过程不可以被掠夺——这是 ADD 范式与 Trae 平台的根本分界线
+- 代码可以开源，但思维过程不可以被掠夺——这是 ADD 范式与 IDE 平台的根本分界线
 
 ---
 
-## ADD-0.3：自动审计机制（Automatic Audit Mechanism）暂未实现，可暂时跳过
-
-**受 [milktea](https://github.com/Milkycoffees/node_livid) 启发** — milktea 在 Node RuoYi 项目中首次证明了"Layer 2 运行时审计可以完全自动记录"（Express 中间件覆盖 `res.json()` 拦截 POST/PUT/DELETE，自动写入审计日志）。
-- 核心文件：`src/middlewares/audit.js`（Express 中间件，覆盖 `res.json()` 实现 Layer 2 自动审计）
-- 审计日志模型：`src/models/SysAuditLog.js`
-- 数据库表：`pro_add_log`
+## ADD-0.3：自动审计机制（Automatic Audit Mechanism）
 
 ### 核心原则
 
-所有数据变更操作（CREATE、UPDATE、DELETE）**必须自动记录**到 `AuditLog` 表，开发者不应手动编写 Layer 2 审计代码。
+系统的数据流转路径必须可观测、可追溯。数据经过的每一个关键节点都应留下记录，使得任意一次操作的全链路可被审计重构。
 
-### 实现方向
+审计的目标不是记录 CRUD 操作本身，而是记录两件事：
 
-> 本节为占位。具体实现在 farm-agent Next.js 架构中采用 **高阶函数包装器模式**（`withRuntimeAudit`），详见：
-> - Plan: `.trae/plans/farm-agent-layer2-cross-cutting-plan-v1.md`
-> - Spec: `.trae/specs/farm-agent-layer2-cross-cutting/spec.md`
+- **数据流经事实** — 数据经过了哪些关键节点
+- **业务决策结果** — 裁决逻辑的输入与输出、状态迁移的触发条件与目标状态、能力模型匹配的过程与结论
 
-### 设计目标
+以上都必须自动记录到 `AuditLog` 表。业务代码中不得出现手动的审计调用——审计是系统行为，不是业务逻辑。
 
-| 目标 | 说明 |
-|------|------|
-| 自动记录 | POST/PUT/DELETE 操作自动写入 AuditLog，无需手动调用 |
-| 不阻塞响应 | 异步写入，`.catch()` 兜底不抛异常 |
-| 成功/失败等价 | 成功路径和失败路径均有审计记录（ADD-6） |
-| 路径映射 | URL → 业务域 映射表，支持跳过路径（如 login） |
-| 脱敏 | 敏感字段（password/token/secret）自动替换为 `***` |
+### 实现层级
 
-### 与 Layer 1 dev-logger 的关系
+根据项目成熟度，审计覆盖范围分为两档：
 
-- **Layer 1 dev-logger**：开发环境，AI 助手消费，检查 ADD 合规（阶段标记对称等）
-- **Layer 2 运行时审计**：所有环境，最终用户消费，记录操作历史（本节所述）
-- 两者互不干扰：Layer 1 由现有 `src/lib/*-logger.ts` 承载，Layer 2 由 `withRuntimeAudit()` 横切机制承载
+| 层级 | 覆盖范围 | 要求 |
+|------|---------|------|
+| **最低（核心路径）** | 裁决层（或等价业务判断集中点）的输入/输出 | 必须实现。核心业务的流转事实可审计，非核心路径可暂缺 |
+| **理想（全链路）** | 数据从源头到消费的每一个架构节点 | 目标状态。全链路无死角；能力模型动态验证（能力授予/回收、匹配/不匹配的全路径）可审计；"数据入库 → 拉取 → 裁决 → 能力对象 → 消费"每一步都可追溯 |
+
+**强制底线**：任何系统至少达到"最低"层级。低于此线 = 不可审计。
+
+### 规则定义
+
+系统必须通过**横切机制**（Callback / Middleware / 拦截器）自动捕获数据流转生命周期事件，并在事件发生时异步写入 `AuditLog` 表。
+
+**关键要求**：
+1. **自动触发** — 审计由框架层机制（非业务代码）触发
+2. **不阻塞响应** — 异步写入，`.catch()` 兜底不抛异常
+3. **成功/失败等价** — 成功路径和失败路径均有审计记录（ADD-6）
+4. **节点/接口过滤** — 可配置白名单/黑名单，支持跳过路径（如 login、health check）
+5. **脱敏** — 敏感字段（password/token/secret）自动替换为 `***`
+6. **裁决层优先** — 裁决层的输入/输出是最高优先级的审计点，比 CRUD 记录更重要
 
 ---
 
@@ -618,3 +619,37 @@ AI 助手在**每次新对话启动时**，必须先执行 `.trae/skills/session
 
 MCP 服务器配置在 `.trae/mcp.json`，通过 `npx tsx .trae/scripts/mcp-server.ts` 启动。
 Trae IDE 加载项目时自动连接 MCP 服务器。
+
+### 附录
+
+#### A. farm-agent ADD-0.3 实现（AuditCallback）
+
+farm-agent 通过 **LangChain `BaseCallbackHandler` 继承模式** 实现自动审计：
+
+- `AuditCallback extends BaseCallbackHandler` — 继承 LangChain 标准回调接口
+- `handleChainStart()` / `handleChainEnd()` / `handleChainError()` — 节点进入/退出/异常自动记录
+- `handleLLMEnd()` — LLM 调用完成时记录 token 用量
+- `handleToolStart()` / `handleToolEnd()` — Tool 调用完成时记录输入/输出
+
+注入方式（`src/agents/index.ts`）：
+```typescript
+const callback = new AuditCallback(traceId, userId)
+agent.invoke(input, { callbacks: [callback] })
+```
+
+**与 Layer 1 dev-logger 的关系**：
+- Layer 1（`wrapNodeWithAudit`）：console + file，仅开发环境，AI 助手消费
+- Layer 2（`AuditCallback`）：AuditLog 表，所有环境始终开启，最终用户消费
+- 两者共存互补，互不干扰
+
+**设计目标达成情况**：
+
+| 目标 | 状态 |
+|------|:----:|
+| 自动记录 | ✅ |
+| 不阻塞响应 | ✅ |
+| 成功/失败等价 | ✅ |
+| 节点过滤 | ✅ |
+| traceId 全链追踪 | ✅ |
+
+#### B. 历史参考（milktea 项目）
