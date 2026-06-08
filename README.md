@@ -17,7 +17,7 @@
 
 这不是空想。这个仓库是我把十几年的元哲学思考映射到编程垂直领域的工程化尝试，**先解决我自己的效率问题**。
 
-它不只是一套范式理论——里面有一个真实的农业智能体，已经过了 7 轮原子事务迭代，每一轮都在集中裁决层上做决策、在审计链路上留证据。范式和方法论是从真实代码中长出来的，不是先设计好再去找场景。
+它不只是一套范式理论——里面有一个真实的农业智能体，已经过了 7 轮原子事务迭代，每一轮都在集中裁决层上做决策、在审计链路上留证据。范式和方法论是从真实代码中长出来的，不是先设计好再去找场景。[→ 7 轮迭代证据：导入审计日志自行验证](#audit-verification)
 
 如果你也觉得有用、能降低你的编程成本和心智负担，那它大概率能帮到你。
 
@@ -55,6 +55,22 @@
 **哲学理论**发现了问题——全链路集成 AI 导致认知降维、DSL 必然要求可审计设计、系统演化需要嵌入式路径策略。
 **ADD 范式**给出了答案——可审计驱动开发，让 AI 编程从"单次会话黑盒"变成"跨会话可接续白盒"。
 **农业智能体**完成了验证——ADD 范式完整落地到真实产品，经过 7 轮原子事务迭代验证。
+
+### 读者导航：按身份对号入座
+
+本项目横跨 **哲学理论、软件工程方法论、AI Agent 工程、农业智能决策、全栈开发** 五个领域。不同背景的读者关心的东西不同，认知盲区也不同——以下导航帮你直奔你最需要的部分，并标注了你可能需要补充的前置认知。
+
+| 你的身份 | 🎯 你最感兴趣 | ⚠️ 可能需要补充的认知 | 🚪 建议入口 |
+|----------|-------------|---------------------|----------|
+| **软件架构师 / 技术管理者** | 裁决层设计、ADD 全流程、审计管线如何保证合规 | 哲学理论不必全读，但 DSL 文章必看——它解释了为什么裁决层是架构必然而不是风格偏好 | [集中裁决层](#集中裁决层为什么是质变不只是模块重构) → [ADD 工作流](#add-开发工作流从需求到交付) → [审计验证](#审计日志验证证明-7-轮迭代真实发生) |
+| **AI Agent 工程师** | LangGraph 管线、ChainTracer、Agent 节点编排、审计回调 | 需要理解 ADD 的"审计是基础设施而非事后日志"——否则会把审计当成可选的埋点 | [7 轮迭代表](#工程实践验证大田精准耕播智能决策系统) → [Handoff](#handoffadd-中最容易被误解的概念) → `src/agents/` 源码 |
+| **前端 / 全栈开发者** | Next.js + React + TypeScript + Prisma 工程化实践 | ADD 范式不是额外负担，是帮你省掉"改了这里那里爆"的 debug 时间——先用起来再理解理论 | [快速部署](#五快速部署) → `src/app/` + `src/components/` → [裁决层代码](#集中裁决层为什么是质变不只是模块重构) |
+| **农业 / AgriTech 从业者** | 大田耕播业务逻辑、智能决策管线、农情日报 | 不用深入哲学理论——重点看需求文档和架构文档，理解系统能做什么、怎么做的 | [大田系统文档](#大田精准耕播智能决策系统farm-agent) → [需求文档](#需求文档-prd) → [架构文档](#架构文档) |
+| **哲学家 / 认知科学研究者** | 认知降维风险、人机关系哲学、嵌入式演化策略 | 代码部分可以跳过——但 ADD 范式是哲学结论的工程化证明，建议至少看一个 Handoff 理解跨会话接续 | [4 篇哲学理论](#二哲学理论基础) → [实践方法论](docs/哲学理论/实践.md) → [Handoff](#handoffadd-中最容易被误解的概念) |
+| **开源贡献者 / 学习者** | 怎么参与、贡献代码、理解"为什么这么做" | 先跑起来再理解范式——按部署指南 5 分钟启动，然后从 rules 看起理解约束 | [快速部署](#五快速部署) → [审计验证](#审计日志验证证明-7-轮迭代真实发生) → `.ai/rules/project_rules.md` |
+| **投资人 / 行业观察者** | 项目价值、差异化壁垒、为什么不是又一个 Agent 框架 | 重点看三层体系的逻辑闭环 + 7 轮迭代数据证据，代码细节可以略过 | [项目概览](#一项目概览哲学--范式--实践) → [集中裁决层](#集中裁决层为什么是质变不只是模块重构) → [审计验证](#审计日志验证证明-7-轮迭代真实发生) |
+
+> 💡 **跨行业读者的常见认知陷阱**：软件工程师容易把哲学理论当"水文"跳过——但 DSL 那篇文章里关于裁决层的推导，直接决定了 `src/agents/` 里的架构设计；农业从业者容易陷入业务细节而忽略 ADD 范式——但这个范式才是保证系统能持续演化不腐烂的底层机制。建议每个读者至少看一个自己"舒适区之外"的章节。
 
 ### 阅读路线：先哲学，再 .ai，后代码
 
@@ -361,6 +377,94 @@ npm run agent:diagnose   # 一键诊断 LLM/ChromaDB/PostgreSQL 连通性
 npm run agent:logs       # 查看 Agent 审计日志 (最近 100 行)
 npm run agent:logs:clear # 清空 Agent 日志
 ```
+
+<a name="audit-verification"></a>
+
+### 审计日志验证：证明 7 轮迭代真实发生
+
+farm-agent 的完整开发过程（Round 1-7）以 **ADD 审计日志** 的形式留存在仓库中。
+两个压缩文件位于 `data/exports/`：
+
+| 文件 | 内容 | 记录数 |
+|------|------|--------|
+| `farm-agent-dev-audit.json.gz` | **开发操作审计**：每轮代码变更的 before/after + reason | 310 条 |
+| `farm-agent-runtime-audit.json.gz` | **运行时审计**：Agent 节点执行 + 流式追踪 | 40,562 条 |
+
+> ⚠️ 这两个文件**仅包含 Round 1-7**。
+
+#### 第一步：导入审计日志
+
+```bash
+# 启动 farm-agent 自己的数据库容器
+npm run db:start
+
+# 导入两个审计日志文件（自动解压 .gz，去重，映射到本地用户）
+npm run db:import
+```
+
+导入完成后，数据库 `AuditLog` 表将有约 40,900 条记录。
+
+#### 第二步：验证 7 轮迭代证据
+
+以下查询可通过 MCP 工具 `query_audit_logs` 或直接 SQL 执行：
+
+```bash
+# 方式 A：MCP 工具查询（推荐，在 AI 助手中直接调用）
+# query_audit_logs({ keyword: "Round" })          → 查看全部 Round 标记记录
+# query_audit_logs({ keyword: "Round1" })          → 第 1 轮类型收敛
+# query_audit_logs({ keyword: "Round2" })          → 第 2 轮响应策略
+# query_audit_logs({ keyword: "Round3" })          → 第 3 轮领域专家
+# query_audit_logs({ keyword: "Round4" })          → 第 4 轮管线集成
+# query_audit_logs({ targetType: "STREAM_TRACE" }) → 运行时决策链路追踪
+```
+
+```sql
+-- 方式 B：直接 SQL 查询
+-- 按轮次查看开发操作审计
+SELECT action, reason, "createdAt"
+FROM "AuditLog"
+WHERE reason LIKE '%Round%'
+ORDER BY "createdAt";
+
+-- 按 targetType 分布验证完整性
+SELECT "targetType", count(*)
+FROM "AuditLog"
+GROUP BY "targetType"
+ORDER BY count(*) DESC;
+
+-- 运行时链路：查看 Agent 节点执行轨迹
+SELECT action, "targetId", "createdAt"
+FROM "AuditLog"
+WHERE "targetType" = 'AGENT_NODE'
+ORDER BY "createdAt"
+LIMIT 50;
+```
+
+#### 验证要点
+
+| 验证项 | 预期结果 | 说明 |
+|--------|----------|------|
+| Round 1-7 覆盖 | 29 条 Round 标记记录 | 含 ROUND1_TYPE_CONVERGENCE、ROUND1_5_CORE_BASELINE、ROUND3_EXPERT、ROUND4_PIPELINE 等 |
+| 开发操作类型 | 10+ targetType | COMPONENT/DOC/SCHEMA/RULE/CONFIG/SCRIPT/PLAN/API_ROUTE/PROMPT/TOOL |
+| 运行时追踪 | 39,102 条 STREAM_TRACE | 每次 Agent 推理的完整 token 流 |
+| Agent 节点 | 1,460 条 AGENT_NODE | 管线 6 节点执行记录 |
+| **Round 8 隔离** | **0 条** | `caijuehub`、`cognitive-event-bus`、`global-state` 等 Round 8 特征在导出中 **0 命中** |
+| 日期边界 | 最晚 2026-05-29 | Round 8 最早 2026-06-06，中间 8 天空窗 |
+
+#### 为什么要看审计日志而不是代码 diff？
+
+代码 diff 只能告诉你**文件变成了什么样**。审计日志告诉你**每一步改了什么、为什么改、改之前是什么**：
+
+```json
+{
+  "action": "ROUND4_PIPELINE_COMPLETED",
+  "reason": "Round4 代码执行完成：管线消费+报告服务，9文件全部通过tsc验证",
+  "beforeState": { "管线节点": "无 evidenceFilter/activeExperts" },
+  "afterState": { "9文件": "全部通过 tsc", "新增": ["report-generator", "report API"] }
+}
+```
+
+这就是 ADD 的核心承诺：**不是事后补日志，是编码时就嵌在基础设施里。** 审计日志 + `.ai/` 下的 plan/review/handoff/spec 文件 + 代码 diff，三者互相印证，构成完整的 7 轮开发证据链。
 
 ---
 
