@@ -1,8 +1,8 @@
 # ADD 范式案例参考与实施计划
 
 > **范式定义位置**：ADD 范式的核心原则和开发工作流已分散到三个层级：
-> - **强制层**：`.trae/rules/project_rules.md` — ADD-0 到 ADD-6 作为不可违反的约束
-> - **引导层**：`.trae/skills/add-paradigm/SKILL.md` — Step 0 到 Step 6（含 Step 3.5 AI 合规检查）完整工作流
+> - **强制层**：`.ai/rules/project_rules.md` — ADD-0 到 ADD-6 作为不可违反的约束
+> - **引导层**：`.ai/skills/add-paradigm/SKILL.md` — Step 0 到 Step 6（含 Step 3.5 AI 合规检查）完整工作流
 > - **参考层**：本文件 — RAG 案例、聊天持久化/ChainTracer/RAG 修复的实施计划
 
 ---
