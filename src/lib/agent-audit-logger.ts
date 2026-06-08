@@ -1,7 +1,7 @@
 import * as fs from "fs/promises"
 import * as path from "path"
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 
 const PREFIX = "[AGENT-AUDIT]"
 

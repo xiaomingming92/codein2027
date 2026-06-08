@@ -1,14 +1,24 @@
 import { Chroma } from "@langchain/community/vectorstores/chroma"
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 import { parseDocumentFromBuffer } from "./document-parser"
 import type { Document } from "@langchain/core/documents"
 
 const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
 const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
 const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = "team-coordinator-docs"
+interface DocumentRecord {
+  content: string | null
+  name: string
+  type: string
+  projectId: string | null
+  taskId: string | null
+  userId: string | null
+  createdAt: Date
+}
+
+const COLLECTION_NAME = "farm-agent-docs"
 
 interface DocumentMetadata {
   projectId?: string
@@ -125,7 +135,7 @@ export async function reindexAll(): Promise<{ success: boolean; count: number; e
       return { success: true, count: 0 }
     }
 
-    const docs: Document[] = documents.map((doc) => ({
+    const docs: Document[] = documents.map((doc: DocumentRecord) => ({
       pageContent: doc.content || "",
       metadata: {
         fileName: doc.name,

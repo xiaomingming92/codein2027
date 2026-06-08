@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 import { parseDocumentFromBuffer } from "./document-parser"
 import { DOC_STATUS, SOURCE_TYPE } from "@/constants/doc-status"
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters"
@@ -10,7 +10,7 @@ import { getEmbeddings, getEmbeddingConfig } from "@/lib/embeddings"
 const CHROMA_HOST = process.env.CHROMA_HOST || "localhost"
 const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
 const CHROMA_URL = `http://${CHROMA_HOST}:${CHROMA_PORT}`
-const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "team_coordinator"
+const COLLECTION_NAME = process.env.CHROMA_COLLECTION || "farm_agent"
 const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
 
 class DirectChromaClient {

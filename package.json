@@ -21,6 +21,8 @@
     "db:generate": "npx prisma generate",
     "db:studio": "cross-env NODE_ENV=development bash -c 'ENV_FILE=\".env.${NODE_ENV:-development}\"; export $(grep -v ^# $ENV_FILE | xargs) && npx prisma studio'",
     "db:reset": "cross-env NODE_ENV=development npx prisma migrate reset --force && npm run db:init:safe",
+    "db:export": "tsx scripts/db-export.ts",
+    "db:import": "tsx scripts/db-import.ts",
     "kb:sync": "tsx scripts/kb-sync.ts",
     "kb:export": "tsx scripts/kb-export.ts",
     "kb:import": "tsx scripts/kb-import.ts",
