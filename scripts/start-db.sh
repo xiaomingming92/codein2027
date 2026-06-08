@@ -26,7 +26,7 @@ else
 fi
 
 echo "等待 PostgreSQL 就绪..."
-until $CONTAINER_EXEC team-coordinator-postgres pg_isready -U team_admin -d team_coordinator 2>/dev/null; do
+until $CONTAINER_EXEC farm-agent-postgres pg_isready -U farm_admin -d farm_agent 2>/dev/null; do
   echo "PostgreSQL 正在启动..."
   sleep 2
 done
@@ -35,7 +35,7 @@ echo ""
 echo "=== PostgreSQL 已就绪 ==="
 echo ""
 echo "服务地址: localhost:5432"
-echo "数据库名: team_coordinator"
-echo "用户名:   team_admin"
+echo "数据库名: farm_agent"
+echo "用户名:   farm_admin"
 echo ""
 echo "停止服务: $COMPOSE_CMD -f $COMPOSE_FILE down"

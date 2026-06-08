@@ -11,7 +11,7 @@ echo "📦 基础设施状态:"
 echo ""
 
 echo "PostgreSQL:"
-$CONTAINER_PS --filter name=team-coordinator-postgres --format "  {{.Status}} ({{.Ports}})" 2>/dev/null || echo "  ❌ 未运行"
+$CONTAINER_PS --filter name=farm-agent-postgres --format "  {{.Status}} ({{.Ports}})" 2>/dev/null || echo "  ❌ 未运行"
 
 echo ""
 

@@ -68,7 +68,7 @@ if echo "$RESPONSE2" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 text = data['result']['content'][0]['text']
-if 'team-coordinator-agent' in text and '核心依赖' in text:
+if 'farm-agent' in text and '核心依赖' in text:
   print('PASS')
 else:
   print('FAIL')

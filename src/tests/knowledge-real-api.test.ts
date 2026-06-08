@@ -36,7 +36,7 @@ console.log(`   API Key: ${process.env.OPENAI_API_KEY ? `✅ (${process.env.OPEN
 console.log(`   Base URL: ${process.env.EMBEDDING_BASE_URL}`)
 console.log("")
 
-const KNOWLEDGE_DIR = "/home/xmm/ai/农业智能体/team-coordinator-agent/docs/农业智能体(把地种智能体)/knowledge"
+const KNOWLEDGE_DIR = "/home/xmm/ai/农业智能体/codein2027/docs/农业智能体(把地种智能体)/knowledge"
 
 describe("Knowledge Base Integration Tests (Real API)", () => {
   let testFiles: Array<{ name: string; filePath: string; buffer: Buffer }> = []
@@ -103,7 +103,7 @@ describe("Knowledge Base Integration Tests (Real API)", () => {
 
       const chromaHost = process.env.CHROMA_HOST || "localhost"
       const chromaPort = process.env.CHROMA_PORT || "8000"
-      const collection = process.env.CHROMA_COLLECTION || "team_coordinator"
+      const collection = process.env.CHROMA_COLLECTION || "farm_agent"
 
       console.log(`   Host: ${chromaHost}`)
       console.log(`   Port: ${chromaPort}`)

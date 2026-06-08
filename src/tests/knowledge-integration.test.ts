@@ -5,7 +5,7 @@ import { indexKnowledgeDocument } from "@/services/knowledge-indexer"
 import { parseDocumentFromBuffer } from "@/services/document-parser"
 import { getEmbeddings } from "@/lib/embeddings"
 
-const KNOWLEDGE_DIR = "/home/xmm/ai/农业智能体/team-coordinator-agent/docs/农业智能体(把地种智能体)/knowledge"
+const KNOWLEDGE_DIR = "/home/xmm/ai/农业智能体/codein2027/docs/农业智能体(把地种智能体)/knowledge"
 
 describe("Knowledge Base Integration Tests", () => {
   let testFiles: Array<{ name: string; path: string; buffer: Buffer }> = []
@@ -290,7 +290,7 @@ describe("Real Environment Verification", () => {
     const chromaUrl = `http://${chromaHost}:${chromaPort}`
     
     console.log(`   Chroma URL: ${chromaUrl}`)
-    console.log(`   Collection: ${process.env.CHROMA_COLLECTION || "team_coordinator"}`)
+    console.log(`   Collection: ${process.env.CHROMA_COLLECTION || "farm_agent"}`)
     
     expect(chromaHost).toBeDefined()
     expect(chromaPort).toBeDefined()

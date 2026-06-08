@@ -12,7 +12,7 @@ if [ -f "$ENV_FILE" ]; then
   export $(grep -v '^#' "$ENV_FILE" | xargs)
 fi
 
-until $CONTAINER_EXEC team-coordinator-postgres pg_isready -U team_admin -d team_coordinator 2>/dev/null; do
+until $CONTAINER_EXEC farm-agent-postgres pg_isready -U farm_admin -d farm_agent 2>/dev/null; do
   echo "等待 PostgreSQL..."
   sleep 1
 done

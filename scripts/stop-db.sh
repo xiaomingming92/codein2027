@@ -16,8 +16,8 @@ if [ -n "$COMPOSE_FILE" ]; then
   $COMPOSE_CMD -f "$COMPOSE_FILE" down
 else
   echo "尝试直接停止容器..."
-  $CONTAINER_RUNTIME stop team-coordinator-postgres team-coordinator-chroma 2>/dev/null || true
-  $CONTAINER_RUNTIME rm team-coordinator-postgres team-coordinator-chroma 2>/dev/null || true
+  $CONTAINER_RUNTIME stop farm-agent-postgres farm-agent-chroma 2>/dev/null || true
+  $CONTAINER_RUNTIME rm farm-agent-postgres farm-agent-chroma 2>/dev/null || true
 fi
 
 echo ""

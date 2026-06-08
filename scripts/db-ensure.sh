@@ -23,7 +23,7 @@ echo ""
 
 # 检查 PostgreSQL
 echo "📦 [1/4] 检查 PostgreSQL..."
-if $CONTAINER_PS --filter name=team-coordinator-postgres --format '{{.Names}}' | grep -q team-coordinator-postgres; then
+if $CONTAINER_PS --filter name=farm-agent-postgres --format '{{.Names}}' | grep -q farm-agent-postgres; then
   echo "   ✅ PostgreSQL 容器已在运行"
 else
   echo "   🔄 启动 PostgreSQL 容器..."
@@ -31,7 +31,7 @@ else
 fi
 
 echo "⏳ 等待 PostgreSQL 就绪..."
-until $CONTAINER_EXEC team-coordinator-postgres pg_isready -U team_admin -d team_coordinator 2>/dev/null; do
+until $CONTAINER_EXEC farm-agent-postgres pg_isready -U farm_admin -d farm_agent 2>/dev/null; do
   sleep 1
 done
 echo "   ✅ PostgreSQL 已就绪 (localhost:5432)"
@@ -44,7 +44,7 @@ CHROMA_PORT="${CHROMA_PORT:-8000}"
 
 if curl -s --connect-timeout 2 "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
   echo "   ✅ ChromaDB 已在运行 (${CHROMA_HOST}:${CHROMA_PORT})"
-elif $CONTAINER_PS --filter name=team-coordinator-chroma --format '{{.Names}}' | grep -q team-coordinator-chroma; then
+elif $CONTAINER_PS --filter name=farm-agent-chroma --format '{{.Names}}' | grep -q farm-agent-chroma; then
   echo "   ⏳ ChromaDB 容器存在但未就绪，等待启动..."
   
   for i in {1..30}; do
@@ -55,7 +55,7 @@ elif $CONTAINER_PS --filter name=team-coordinator-chroma --format '{{.Names}}' |
     
     if [ $i -eq 30 ]; then
       echo "   ❌ ChromaDB 启动超时，尝试重启..."
-      $CONTAINER_RUNTIME restart team-coordinator-chroma || true
+      $CONTAINER_RUNTIME restart farm-agent-chroma || true
       sleep 5
     else
       sleep 1
@@ -72,13 +72,13 @@ else
     $COMPOSE_CMD -f "$COMPOSE_FILE" up -d chromadb 2>/dev/null || {
       echo "   ⚠️  Compose 启动失败，尝试手动启动..."
       $CONTAINER_RUNTIME run -d \
-        --name team-coordinator-chroma \
+        --name farm-agent-chroma \
         --restart unless-stopped \
         -p "${CHROMA_HOST}:${CHROMA_PORT}:8000" \
         -v "$PROJECT_DIR/data/chroma:/chroma/chroma" \
         -e TZ="Asia/Shanghai" \
-        -e CHROMA_SERVER_AUTH_TOKENS="${CHROMA_AUTH_TOKEN:-team-coordinator-secret-token-2026}" \
-        -e CHROMA_SERVER_AUTH_CREDENTIALS="${CHROMA_AUTH_TOKEN:-team-coordinator-secret-token-2026}" \
+        -e CHROMA_SERVER_AUTH_TOKENS="${CHROMA_AUTH_TOKEN:-farm-agent-chroma-token-2026}" \
+        -e CHROMA_SERVER_AUTH_CREDENTIALS="${CHROMA_AUTH_TOKEN:-farm-agent-chroma-token-2026}" \
         chromadb/chroma:0.4.24 > /dev/null 2>&1
       
       if [ $? -ne 0 ]; then
@@ -108,7 +108,7 @@ fi
 
 # 验证 Chroma 连接
 if curl -s --connect-timeout 2 "http://${CHROMA_HOST}:${CHROMA_PORT}/api/v1/heartbeat" > /dev/null 2>&1; then
-  CHROMA_COLLECTION="${CHROMA_COLLECTION:-team_coordinator}"
+  CHROMA_COLLECTION="${CHROMA_COLLECTION:-farm_agent}"
   echo "   📚 集合名称: ${CHROMA_COLLECTION}"
   echo "   🔐 认证: ${CHROMA_AUTH_TOKEN:+已配置}${CHROMA_AUTH_TOKEN:-未配置(无认证)}"
 else

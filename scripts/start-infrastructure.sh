@@ -46,8 +46,8 @@ if [ $? -eq 0 ]; then
         echo "✅ ChromaDB 已就绪 (localhost:8000)"
         echo ""
         echo "💡 提示:"
-        echo "   - Chroma 集合名称: team_coordinator"
-        echo "   - 认证 Token: team-coordinator-secret-token-2026"
+        echo "   - Chroma 集合名称: farm_agent"
+        echo "   - 认证 Token: farm-agent-chroma-token-2026"
         echo "   - 数据持久化目录: ./data/chroma"
     else
         echo "⚠️  ChromaDB 可能还在启动中..."

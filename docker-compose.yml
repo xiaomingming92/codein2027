@@ -1,16 +1,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: team-coordinator-postgres
+    container_name: farm-agent-postgres
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: team_coordinator
-      POSTGRES_USER: team_admin
-      POSTGRES_PASSWORD: team_secure_pass_2024
+      POSTGRES_DB: farm_agent
+      POSTGRES_USER: farm_admin
+      POSTGRES_PASSWORD: farm_secure_pass_2024
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
       TZ: "Asia/Shanghai"
     command: >
@@ -35,16 +35,16 @@ services:
         reservations:
           memory: 512M
     networks:
-      - team-network
+      - farm-agent-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U team_admin -d team_coordinator"]
+      test: ["CMD-SHELL", "pg_isready -U farm_admin -d farm_agent"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   chromadb:
     image: chromadb/chroma:0.4.24
-    container_name: team-coordinator-chroma
+    container_name: farm-agent-chroma
     restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"
@@ -54,8 +54,8 @@ services:
       TZ: "Asia/Shanghai"
       CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER: "chromadb.auth.token.TokenAuthServerProvider"
       CHROMA_SERVER_AUTH_TOKEN_PROVIDER: "chromadb.auth.token.TokenConfigServerTokenProvider"
-      CHROMA_SERVER_AUTH_TOKENS: "team-coordinator-secret-token-2026"
-      CHROMA_SERVER_AUTH_CREDENTIALS: "team-coordinator-secret-token-2026"
+      CHROMA_SERVER_AUTH_TOKENS: "farm-agent-chroma-token-2026"
+      CHROMA_SERVER_AUTH_CREDENTIALS: "farm-agent-chroma-token-2026"
     deploy:
       resources:
         limits:
@@ -64,7 +64,7 @@ services:
         reservations:
           memory: 512M
     networks:
-      - team-network
+      - farm-agent-network
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
       interval: 15s
@@ -72,5 +72,5 @@ services:
       retries: 5
 
 networks:
-  team-network:
+  farm-agent-network:
     driver: bridge

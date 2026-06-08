@@ -22,7 +22,7 @@ echo 使用 Compose 文件: %COMPOSE_FILE%
 
 echo 等待 PostgreSQL 就绪...
 :wait_pg
-%CONTAINER_EXEC% team-coordinator-postgres pg_isready -U team_admin -d team_coordinator >nul 2>nul
+%CONTAINER_EXEC% farm-agent-postgres pg_isready -U farm_admin -d farm_agent >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo PostgreSQL 正在启动...
     timeout /t 2 /nobreak >nul
@@ -33,7 +33,7 @@ echo.
 echo === PostgreSQL 已就绪 ===
 echo.
 echo 服务地址: localhost:5432
-echo 数据库名: team_coordinator
-echo 用户名:   team_admin
+echo 数据库名: farm_agent
+echo 用户名:   farm_admin
 echo.
 echo 停止服务: %COMPOSE_CMD% -f "%COMPOSE_FILE%" down

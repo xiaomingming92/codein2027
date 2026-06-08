@@ -4,7 +4,7 @@ export const CHROMA_PORT = process.env.CHROMA_PORT || "8000"
 
 export const CHROMA_URL = process.env.CHROMA_URL || `http://${CHROMA_HOST}:${CHROMA_PORT}`
 
-export const CHROMA_COLLECTION = process.env.CHROMA_COLLECTION || "team_coordinator"
+export const CHROMA_COLLECTION = process.env.CHROMA_COLLECTION || "farm_agent"
 
 export const CHROMA_AUTH_TOKEN = process.env.CHROMA_AUTH_TOKEN || ""
 

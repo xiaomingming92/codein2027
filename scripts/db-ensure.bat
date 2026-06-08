@@ -21,7 +21,7 @@ echo 运行时: %CONTAINER_RUNTIME%
 echo.
 
 echo [1/4] 检查 PostgreSQL...
-%CONTAINER_PS% --filter name=team-coordinator-postgres --format "{{.Names}}" | findstr /c:"team-coordinator-postgres" >nul 2>nul
+%CONTAINER_PS% --filter name=farm-agent-postgres --format "{{.Names}}" | findstr /c:"farm-agent-postgres" >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
     echo    [OK] PostgreSQL 容器已在运行
 ) else (
@@ -31,7 +31,7 @@ if %ERRORLEVEL% EQU 0 (
 
 echo 等待 PostgreSQL 就绪...
 :wait_pg
-%CONTAINER_EXEC% team-coordinator-postgres pg_isready -U team_admin -d team_coordinator >nul 2>nul
+%CONTAINER_EXEC% farm-agent-postgres pg_isready -U farm_admin -d farm_agent >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
     timeout /t 1 /nobreak >nul
     goto wait_pg
