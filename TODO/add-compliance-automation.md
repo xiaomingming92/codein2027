@@ -20,7 +20,7 @@ ADD 范式当前依赖 **MCP 工具 + AI 自觉调用** 来维持合规性。这
 │                                                                      │
 │  ╔═════════════════════════════════════════════════════════════════╗ │
 │  ║  第一层：Spec 定义层（规范性来源）                                ║ │
-│  ║  .trae/specs/co-agent-{闭包}/                                   ║ │
+│  ║  .ai/specs/co-agent-{闭包}/                                   ║ │
 │  ║  ┌──────────┐ ┌──────────┐ ┌──────────┐                        ║ │
 │  ║  │ spec.md  │ │ tasks.md │ │checklist │  ← 定义"该做什么"        ║ │
 │  ║  └────┬─────┘ └────┬─────┘ └────┬─────┘                        ║ │
@@ -234,7 +234,7 @@ $ git commit -m "fix: quick hotfix"
 
 ## 最终目标态：Spec 与自动化工具双向链接
 
-完成后，每个 `.trae/specs/co-agent-*/checklist.md` 文件将具备以下结构：
+完成后，每个 `.ai/specs/co-agent-*/checklist.md` 文件将具备以下结构：
 
 ```markdown
 # Checklist: co-agent-type-convergence
@@ -263,7 +263,7 @@ $ git commit -m "fix: quick hotfix"
 
 | 检查层 | 实现方式 | 外部依赖 | 当前状态 |
 |--------|---------|---------|---------|
-| Lint 规则 | ESLint plugin (TypeScript AST) | `@typescript-eslint/parser` | 逻辑可直译现有 MCP 实现（[mcp-server.ts:L324-L450](file:///home/xmm/ai/农业智能体/codein2027/.trae/scripts/mcp-server.ts#L324-L450)） |
+| Lint 规则 | ESLint plugin (TypeScript AST) | `@typescript-eslint/parser` | 逻辑可直译现有 MCP 实现（[mcp-server.ts:L324-L450](file:///home/xmm/ai/农业智能体/codein2027/.ai/scripts/mcp-server.ts#L324-L450)） |
 | Gate 1 文档 | `git diff --cached` + 路径规则映射 | 无 | 需实现 |
 | Gate 2 审计 | `git diff --cached` + 正则匹配 | 无 | 需实现 |
 | Gate 3 代码 | `eslint` + `npx tsc --noEmit` | eslint-plugin-add-audit（阶段一产物） | 需实现 |

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "child_process"
 import { createInterface, type ReadLine } from "readline"
 
-const MCP_SERVER_PATH = ".trae/scripts/mcp-server.ts"
+const MCP_SERVER_PATH = ".ai/scripts/mcp-server.ts"
 const PROJECT_ROOT = process.cwd()
 
 interface MCPResponse {

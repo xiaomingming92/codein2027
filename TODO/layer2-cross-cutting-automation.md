@@ -343,7 +343,7 @@ milktea 的中间件证明了 Layer 2 自动记录是可行的——这是不可
 
 ## 关联文档
 
-- `.trae/reviews/farm-agent-layer2-cross-cutting-review-v1.md` — 本 TODO 的 Review
+- `.ai/reviews/farm-agent-layer2-cross-cutting-review-v1.md` — 本 TODO 的 Review
 - `TODO/add-compliance-automation.md` — ADD 合规自动化体系（三层模型）
 - `TODO/crossenv-platform-abstraction.md` — 跨平台环境统一
 - milteaa 项目 `src/middlewares/audit.js` — Layer 2 自动记录的首个实现，[node_livid](https://github.com/Milkycoffees/node_livid)

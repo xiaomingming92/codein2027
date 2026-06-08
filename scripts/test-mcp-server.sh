@@ -4,7 +4,7 @@
 
 set -e
 
-MCP_SERVER=".trae/scripts/mcp-server.ts"
+MCP_SERVER=".ai/scripts/mcp-server.ts"
 PASS=0
 FAIL=0
 
