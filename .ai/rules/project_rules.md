@@ -325,6 +325,21 @@ afterState: JSON 字符串，描述改动后的关键信息（至少包含本次
 reason: 中文/英文说明本次改动的目的
 ```
 
+### targetId 路径格式
+
+**所有 `targetId` 必须使用相对于 workspace 根目录的路径，禁止使用绝对路径。**
+
+错误示例：
+- ❌ `/home/xmm/ai/farm-agent/src/middleware.ts`（绝对路径，Linux 下不可移植）
+- ❌ `C:\Users\xxx\farm-agent\src\middleware.ts`（绝对路径，Windows 下不可移植）
+
+正确示例：
+- ✅ `src/middleware.ts`（farm-agent workspace 内）
+- ✅ `agrisynapse/src/api/agent/types.ts`（跨项目时带项目名前缀）
+- ✅ `.qoder/plans/farm-agent-agrisynapse-integration-plan-v1.md`（.qoder 内文件）
+
+原因：`query_audit_logs({ targetId })` 做精确匹配，绝对路径和相对路径是两条不同的记录，导致漏查。
+
 ### 批量操作场景
 
 一个 plan 包含多个文件改动时，建议：
