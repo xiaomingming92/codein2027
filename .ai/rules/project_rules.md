@@ -97,6 +97,20 @@ ADD 是**开发阶段**的编程范式，不是运行时范式。
 | 架构文档 | `docs/*/knowledge/01-架构/` 或 `02-架构/` | 架构说明书、系统设计、模块定义 |
 | 规范文档 | `docs/*/knowledge/02-规范/` 或 `03-规范/` | 开发规范、AI 核心规范、状态机规范 |
 
+**此外，ADD 工作流的核心产物由 `.qoder/templates/` 下的 8 个模板定义**，这些模板不是参考资料，而是每次变更必须产出的文档骨架。分析变更影响范围时，必须同步确认需要创建/更新哪些模板产物：
+
+| 模板 | 用途 | 对应阶段 |
+|------|------|---------|
+| `plan-template.md` | 需求方案：元信息 + 背景目标 + 方案选型 + 架构设计 + 实施步骤 + 验收标准 + ADD-7审计策略 | 需求理解 |
+| `spec-template.md` | 功能规格：Why / What Changes / Impact / WHEN-THEN Requirements | Step 0~1 |
+| `tasks-template.md` | 任务拆分：Phase → Task → SubTask 层级 | Step 1 |
+| `checklist-template.md` | 验收清单：业务检查项 + ADD 规则合规检查 | Step 5 / Step 8 |
+| `review-template.md` | 强制评审：元信息 + 问题复现 + 方案对比 + 决策结论 + 影响评估 | Review 关卡 |
+| `handoff-template.md` | 交接总览索引（指向单轮/多轮） | Step 8 后 |
+| `handoff-single-round-template.md` | 单轮交接：9 章节（含恢复上下文审计查询） | 单轮变更完成后 |
+| `handoff-multi-round-template.md` | 多轮交接：全局拓扑 + 每轮 13 子章节 + 收敛规则 + 启动模板 | 多轮原子事务完成后 |
+
+> **AI 首次学习 ADD 范式时，必须读取上述全部 8 个模板文件。遗漏模板 = 遗漏范式全貌。**
 ### 审计要求
 
 每次文档变更必须记录到 AuditLog（通过 `record_dev_operation` 工具），`targetType` 为 `"DOC"`，`action` 为 `"DOC_UPDATED"` 或 `"DOC_CREATED"`，`targetId` 为文档文件路径。
