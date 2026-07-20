@@ -2,6 +2,7 @@
   "name": "farm-agent",
   "version": "0.1.0",
   "private": true,
+  "description":"ADD (Audit-Driven Development) — 决策可追溯、上下文可接续、代码可自迭代。是新时代编码特性。Last but not least, make 0.75 into one.",
   "scripts": {
     "dev": "cross-env NODE_ENV=development npm run db:ensure && next dev --webpack",
     "build": "next build",
