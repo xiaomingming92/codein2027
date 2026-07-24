@@ -6,6 +6,7 @@
 
 | 渴望 | 含义 |
 |------|------|
+| **裁决集中** | 业务规则不再散落在组件、路由、回调中——集中到单一裁决层。改一条规则只需改一处，全链路生效。产品经理、AI Agent 都能读同一张决策表，规则即能力。**add-coder 的 Caijuehub 已经验证了这一点**。 |
 | **人不会被黑盒替代** | 系统越复杂，人应该越轻松——所有决策汇聚到单一裁决点，人可以读决策表而不是追踪散落的 if。决策一旦集中，AI 就能辅助你判断——这是需求直驱编程的前提。 |
 | **AI 的行为可审计** | 它改了什么、为什么改、改之前是什么样，全链路有记录。不是事后补日志，是编码时就已经嵌在基础设施里。 |
 | **跨会话可接续** | 每次打开 IDE，AI 知道上次做到哪了、为什么那样做、哪里还没做完——不需要我重新讲一遍。 |
@@ -16,6 +17,28 @@
 ---
 
 这不是空想。这个仓库是我把十几年的元哲学思考映射到编程垂直领域的工程化尝试，**先解决我自己的效率问题**。
+
+### 立即体验：[add-coder](https://www.npmjs.com/package/add-coder)
+
+看文档不如跑一次。add-coder 是 ADD 范式的 **npm 脚手架**——把 templates + skills + agents + hooks + MCP 工具链 + 审计数据库 全套基础设施打包为一键部署：
+
+```bash
+npx add-coder init
+```
+
+| 特性 | 说明 |
+|------|------|
+| 🎯 一键就绪 | `npx add-coder init` → 自动检测 IDE → 80+ 文件部署 |
+| 🔗 三端兼容 | Claude Code / Qoder / VS Code 各自独立的 hook + MCP 适配 |
+| 🛡️ 门禁内嵌 | DPS / RAHS 双闸门 + 合规检查，不通过即 BLOCKED |
+| 📊 审计数据库 | 自动部署 DevOperation + AuditLog 表，`record_dev_operation` 一键落库 |
+| ⚙️ CaijueHub 规则引擎 | TOML 驱动的策略体系，检测/适配/Prisma/写入 全可配置 |
+
+详见 [add-coder README](https://www.npmjs.com/package/add-coder?activeTab=readme)。
+
+欢迎参与开发或提 issue → [github.com/xiaomingming92/add-coder](https://github.com/xiaomingming92/add-coder)
+
+---
 
 它不只是一套范式理论——里面有一个真实的农业智能体，已经过了 7 轮原子事务迭代，每一轮都在集中裁决层上做决策、在审计链路上留证据。范式和方法论是从真实代码中长出来的，不是先设计好再去找场景。[→ 7 轮迭代证据：导入审计日志自行验证](#audit-verification)
 
@@ -213,25 +236,7 @@ handoff 的核心内容：
 
 > **理解 Handoff 的关键**：ADD 不是"AI 帮你写代码"，而是"AI 和你一起完成一个长周期的工程任务"。Handoff 是 AI 在每次会话结束时写的"交接备忘录"——下次打开 IDE，新 AI 会话读了 handoff + 跑了审计查询，就知道上次做到哪了、为什么那样做、还需要做什么。不需要你重复讲一遍。
 
-### 立即体验：[add-coder](https://www.npmjs.com/package/add-coder)
-
-看文档不如跑一次。add-coder 是 ADD 范式的 **npm 脚手架**——把 templates + skills + agents + hooks + MCP 工具链 + 审计数据库 全套基础设施打包为一键部署：
-
-```bash
-npx add-coder init
-```
-
-| 特性 | 说明 |
-|------|------|
-| 🎯 一键就绪 | `npx add-coder init` → 自动检测 IDE → 80+ 文件部署 |
-| 🔗 三端兼容 | Claude Code / Qoder / VS Code 各自独立的 hook + MCP 适配 |
-| 🛡️ 门禁内嵌 | DPS / RAHS 双闸门 + 合规检查，不通过即 BLOCKED |
-| 📊 审计数据库 | 自动部署 DevOperation + AuditLog 表，`record_dev_operation` 一键落库 |
-| ⚙️ CaijueHub 规则引擎 | TOML 驱动的策略体系，检测/适配/Prisma/写入 全可配置 |
-
-详见 [add-coder README](https://www.npmjs.com/package/add-coder?activeTab=readme)。
-
-欢迎参与开发或提 issue → [github.com/xiaomingming92/add-coder](https://github.com/xiaomingming92/add-coder)
+---
 
 ### 三层核心哲学
 
