@@ -329,6 +329,8 @@ if (response.code === 0 && data.length > 0 && !isArchived) { ... }
 
 集中裁决带来的最大增益是：**人类从"追踪散落的 if"升级为"读一张决策表"**，认知负担从 O(N×M) 降为 O(1)。这也是 ADD 范式「让人类以更高抽象层直接操纵复杂系统」的工程基础。
 
+> 🎯 **第一个落地实现**：[add-coder 的 Caijuehub 规则引擎](https://github.com/xiaomingming92/add-coder/blob/main/docs/caijuehub.md) 已实现 TOML 规则声明 → 自动生成策略 → 业务代码消费的完整闭环。以 `sync --patch` 为例：产品经理、人机协作的AI编辑 `sync-rules.toml` 中 `on_conflict = "interactive"`，运行 `npm run generate`，策略直驱 TypeScript 代码行为——不改代码、不改 UI，规则即能力。这验证了集中裁决层从理论到工程的可行性。
+
 ### 核心能力
 
 | 能力模块 | 功能说明 | 行业差异化优势 |
